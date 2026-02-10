@@ -1,10 +1,14 @@
 import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 import '../services/storage_service.dart';
+import '../services/sync_service.dart';
+import '../services/supabase_service.dart';
 import '../l10n/app_localizations.dart';
 
 class AppProvider extends ChangeNotifier {
   final StorageService _storage = StorageService();
+  final SyncService _sync = SyncService.instance;
+  final SupabaseService _supabase = SupabaseService.instance;
 
   // State
   List<Customer> _customers = [];
@@ -16,6 +20,7 @@ class AppProvider extends ChangeNotifier {
   String _operatorName = 'My Shipping Business';
   String _currency = 'USD';
   bool _isLoading = true;
+  bool _isSyncing = false;
 
   // Getters
   List<Customer> get customers => _customers;
@@ -27,7 +32,14 @@ class AppProvider extends ChangeNotifier {
   String get operatorName => _operatorName;
   String get currency => _currency;
   bool get isLoading => _isLoading;
+  bool get isSyncing => _isSyncing;
   String get languageCode => _l10n.languageCode;
+  
+  // Auth state
+  bool get isAuthenticated => _supabase.isAuthenticated;
+  bool get isSupabaseConfigured => _supabase.isConfigured;
+  String? get currentUserEmail => _supabase.client?.auth.currentUser?.email;
+  int get pendingSyncCount => _sync.pendingSyncCount;
 
   List<Shipment> get activeShipments => _shipments
       .where(
@@ -44,9 +56,34 @@ class AppProvider extends ChangeNotifier {
 
   Future<void> init() async {
     await _storage.init();
+    await _sync.init();
+    
+    // Set up sync callbacks
+    _sync.onSyncStarted = () {
+      _isSyncing = true;
+      notifyListeners();
+    };
+    _sync.onSyncCompleted = () {
+      _isSyncing = false;
+      _loadAll(); // Reload from Hive after sync
+      notifyListeners();
+    };
+    _sync.onSyncError = (error) {
+      _isSyncing = false;
+      notifyListeners();
+    };
+
+    // Try to init Supabase (non-blocking)
+    await _supabase.initialize();
+    
     _loadAll();
     _isLoading = false;
     notifyListeners();
+
+    // If already authenticated, do a background sync
+    if (_supabase.isAuthenticated) {
+      _sync.fullSync();
+    }
   }
 
   void _loadAll() {
@@ -60,22 +97,98 @@ class AppProvider extends ChangeNotifier {
     _currency = _storage.getCurrency();
   }
 
+  // ==================== AUTH ====================
+
+  Future<String?> signUp({
+    required String email,
+    required String password,
+    String? businessName,
+  }) async {
+    if (!_supabase.isConfigured) return 'Supabase not configured';
+    try {
+      await _supabase.signUp(
+        email: email,
+        password: password,
+        businessName: businessName,
+      );
+      // After signup, sync local data to cloud
+      if (_supabase.isAuthenticated) {
+        await _sync.fullSync();
+        _loadAll();
+        notifyListeners();
+      }
+      return null; // success
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  Future<String?> signIn({
+    required String email,
+    required String password,
+  }) async {
+    if (!_supabase.isConfigured) return 'Supabase not configured';
+    try {
+      await _supabase.signIn(email: email, password: password);
+      // After login, pull cloud data and merge
+      if (_supabase.isAuthenticated) {
+        await _sync.fullSync();
+        _loadAll();
+        notifyListeners();
+      }
+      return null; // success
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  Future<void> signOut() async {
+    try {
+      await _supabase.signOut();
+      notifyListeners();
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Auth] Sign out error: $e');
+    }
+  }
+
+  Future<String?> resetPassword(String email) async {
+    if (!_supabase.isConfigured) return 'Supabase not configured';
+    try {
+      await _supabase.resetPassword(email);
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  // ==================== MANUAL SYNC ====================
+
+  Future<void> manualSync() async {
+    if (!_supabase.isAuthenticated) return;
+    _isSyncing = true;
+    notifyListeners();
+    await _sync.fullSync();
+    _loadAll();
+    _isSyncing = false;
+    notifyListeners();
+  }
+
   // ==================== CUSTOMERS ====================
 
   Future<void> addCustomer(Customer customer) async {
-    await _storage.saveCustomer(customer);
+    await _sync.saveCustomer(customer);
     _customers = _storage.getCustomers();
     notifyListeners();
   }
 
   Future<void> updateCustomer(Customer customer) async {
-    await _storage.saveCustomer(customer);
+    await _sync.saveCustomer(customer);
     _customers = _storage.getCustomers();
     notifyListeners();
   }
 
   Future<void> deleteCustomer(String id) async {
-    await _storage.deleteCustomer(id);
+    await _sync.deleteCustomer(id);
     _customers = _storage.getCustomers();
     notifyListeners();
   }
@@ -85,24 +198,19 @@ class AppProvider extends ChangeNotifier {
   // ==================== SHIPMENTS ====================
 
   Future<void> addShipment(Shipment shipment) async {
-    await _storage.saveShipment(shipment);
+    await _sync.saveShipment(shipment);
     _shipments = _storage.getShipments();
     notifyListeners();
   }
 
   Future<void> updateShipment(Shipment shipment) async {
-    await _storage.saveShipment(shipment);
+    await _sync.saveShipment(shipment);
     _shipments = _storage.getShipments();
     notifyListeners();
   }
 
   Future<void> deleteShipment(String id) async {
-    // Also delete all packages in this shipment
-    final packages = _storage.getPackagesForShipment(id);
-    for (final pkg in packages) {
-      await _storage.deletePackage(pkg.id);
-    }
-    await _storage.deleteShipment(id);
+    await _sync.deleteShipment(id);
     _shipments = _storage.getShipments();
     _packages = _storage.getPackages();
     notifyListeners();
@@ -115,19 +223,19 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> addPackage(ShippingPackage package) async {
-    await _storage.savePackage(package);
+    await _sync.savePackage(package);
     _packages = _storage.getPackages();
     notifyListeners();
   }
 
   Future<void> updatePackage(ShippingPackage package) async {
-    await _storage.savePackage(package);
+    await _sync.savePackage(package);
     _packages = _storage.getPackages();
     notifyListeners();
   }
 
   Future<void> deletePackage(String id) async {
-    await _storage.deletePackage(id);
+    await _sync.deletePackage(id);
     _packages = _storage.getPackages();
     notifyListeners();
   }
@@ -136,7 +244,7 @@ class AppProvider extends ChangeNotifier {
     package.paymentStatus = package.paymentStatus == PaymentStatus.paid
         ? PaymentStatus.unpaid
         : PaymentStatus.paid;
-    await _storage.savePackage(package);
+    await _sync.savePackage(package);
     _packages = _storage.getPackages();
     notifyListeners();
   }
@@ -198,30 +306,35 @@ class AppProvider extends ChangeNotifier {
   Future<void> setLanguage(String lang) async {
     await _storage.setLanguage(lang);
     _l10n = AppLocalizations(languageCode: lang);
+    _sync.syncSettings(language: lang);
     notifyListeners();
   }
 
   Future<void> setOperatorName(String name) async {
     await _storage.setOperatorName(name);
     _operatorName = name;
+    _sync.syncSettings(businessName: name);
     notifyListeners();
   }
 
   Future<void> setCurrency(String cur) async {
     await _storage.setCurrency(cur);
     _currency = cur;
+    _sync.syncSettings(currency: cur);
     notifyListeners();
   }
 
   Future<void> updateAirPricing(AirPricingConfig config) async {
     await _storage.setAirPricing(config);
     _airPricing = config;
+    _sync.syncSettings(airPricing: config);
     notifyListeners();
   }
 
   Future<void> updateSeaPricing(SeaPricingConfig config) async {
     await _storage.setSeaPricing(config);
     _seaPricing = config;
+    _sync.syncSettings(seaPricing: config);
     notifyListeners();
   }
 
@@ -234,47 +347,49 @@ class AppProvider extends ChangeNotifier {
     final currSymbol = _currency == 'USD' ? '\$' : _currency;
 
     final buffer = StringBuffer();
-    buffer.writeln('📦 *${_operatorName}*');
-    buffer.writeln('━━━━━━━━━━━━━━━━━━');
-    buffer.writeln('🔖 Ref: ${pkg.referenceNumber}');
-    buffer.writeln('👤 Customer: ${customer?.name ?? 'Unknown'}');
-    buffer.writeln('📞 Phone: ${customer?.phone ?? 'N/A'}');
+    buffer.writeln(_operatorName);
+    buffer.writeln('---');
+    buffer.writeln('Ref: ${pkg.referenceNumber}');
+    buffer.writeln('Customer: ${customer?.name ?? 'Unknown'}');
+    buffer.writeln('Phone: ${customer?.fullPhone ?? 'N/A'}');
     buffer.writeln('');
     if (shipment != null) {
       buffer.writeln(
-          '${pkg.shipmentType == ShipmentType.air ? '✈️' : '🚢'} ${shipment.name}');
+          '${pkg.shipmentType == ShipmentType.air ? 'AIR' : 'SEA'} - ${shipment.name}');
       buffer.writeln(
-          '📍 Destination: ${destinationFlag(shipment.destination)} ${shipment.destination}');
+          'Destination: ${destinationFlag(shipment.destination)} ${shipment.destination}');
     }
     buffer.writeln('');
     if (pkg.description.isNotEmpty) {
-      buffer.writeln('📋 Description: ${pkg.description}');
+      buffer.writeln('Description: ${pkg.description}');
     }
     if (pkg.weightKg != null) {
-      buffer.writeln('⚖️ Weight: ${pkg.weightKg!.toStringAsFixed(1)} kg');
+      buffer.writeln('Weight: ${pkg.weightKg!.toStringAsFixed(1)} kg');
     }
     if (pkg.presetItemName != null) {
-      buffer.writeln('📦 Item: ${pkg.presetItemName}');
+      buffer.writeln('Item: ${pkg.presetItemName}');
     }
     if (pkg.seaItemType != null) {
-      buffer.writeln('📦 Item: ${seaItemTypeLabel(pkg.seaItemType!)}');
+      buffer.writeln('Item: ${seaItemTypeLabel(pkg.seaItemType!)}');
     }
     buffer.writeln('');
-    buffer.writeln('💰 *Price: $currSymbol${pkg.price.toStringAsFixed(2)}*');
+    buffer.writeln('*Price: $currSymbol${pkg.price.toStringAsFixed(2)}*');
     buffer.writeln(
-        '💳 Payment: ${pkg.paymentStatus == PaymentStatus.paid ? '✅ Paid' : '⏳ Unpaid'}');
+        'Payment: ${pkg.paymentStatus == PaymentStatus.paid ? 'PAID' : 'UNPAID'}');
     if (pkg.receiverName != null) {
       buffer.writeln('');
-      buffer.writeln('📬 Receiver: ${pkg.receiverName}');
+      buffer.writeln('Receiver: ${pkg.receiverName}');
       if (pkg.receiverPhone != null) {
-        buffer.writeln('📞 Receiver Phone: ${pkg.receiverPhone}');
+        final rCode = pkg.receiverPhoneCountryCode ?? '+1';
+        final rDigits = pkg.receiverPhone!.replaceAll(RegExp(r'[^\d]'), '');
+        buffer.writeln('Receiver Phone: $rCode$rDigits');
       }
     }
     buffer.writeln('');
     buffer.writeln(
-        '📅 Date: ${pkg.createdAt.day}/${pkg.createdAt.month}/${pkg.createdAt.year}');
+        'Date: ${pkg.createdAt.day}/${pkg.createdAt.month}/${pkg.createdAt.year}');
     buffer.writeln('');
-    buffer.writeln('Thank you for shipping with us! 🙏');
+    buffer.writeln('Thank you for shipping with us!');
 
     return buffer.toString();
   }
@@ -286,41 +401,41 @@ class AppProvider extends ChangeNotifier {
         _shipments.where((s) => s.id == pkg.shipmentId).firstOrNull;
 
     final buffer = StringBuffer();
-    buffer.writeln('📦 *${_operatorName}*');
-    buffer.writeln('━━━━━━━━━━━━━━━━━━');
-    buffer.writeln('🎉 *A package is on its way to you!*');
+    buffer.writeln(_operatorName);
+    buffer.writeln('---');
+    buffer.writeln('*A package is on its way to you!*');
     buffer.writeln('');
-    buffer.writeln('🔖 Ref: ${pkg.referenceNumber}');
-    buffer.writeln('👤 Sent by: ${customer?.name ?? 'Unknown'}');
+    buffer.writeln('Ref: ${pkg.referenceNumber}');
+    buffer.writeln('Sent by: ${customer?.name ?? 'Unknown'}');
     if (pkg.receiverName != null) {
-      buffer.writeln('📬 For: ${pkg.receiverName}');
+      buffer.writeln('For: ${pkg.receiverName}');
     }
     buffer.writeln('');
     if (shipment != null) {
       buffer.writeln(
-          '${pkg.shipmentType == ShipmentType.air ? '✈️' : '🚢'} ${shipment.name}');
+          '${pkg.shipmentType == ShipmentType.air ? 'AIR' : 'SEA'} - ${shipment.name}');
       buffer.writeln(
-          '📍 Destination: ${destinationFlag(shipment.destination)} ${shipment.destination}');
+          'Destination: ${destinationFlag(shipment.destination)} ${shipment.destination}');
     }
     buffer.writeln('');
     if (pkg.description.isNotEmpty) {
-      buffer.writeln('📋 Contents: ${pkg.description}');
+      buffer.writeln('Contents: ${pkg.description}');
     }
     if (pkg.weightKg != null) {
-      buffer.writeln('⚖️ Weight: ${pkg.weightKg!.toStringAsFixed(1)} kg');
+      buffer.writeln('Weight: ${pkg.weightKg!.toStringAsFixed(1)} kg');
     }
     buffer.writeln('');
     buffer.writeln(
-        '📅 Shipped: ${pkg.createdAt.day}/${pkg.createdAt.month}/${pkg.createdAt.year}');
+        'Shipped: ${pkg.createdAt.day}/${pkg.createdAt.month}/${pkg.createdAt.year}');
     if (shipment?.departureDate != null) {
       buffer.writeln(
-          '🛫 Departure: ${shipment!.departureDate!.day}/${shipment.departureDate!.month}/${shipment.departureDate!.year}');
+          'Departure: ${shipment!.departureDate!.day}/${shipment.departureDate!.month}/${shipment.departureDate!.year}');
     }
     buffer.writeln('');
     buffer.writeln(
         'Please keep this reference number for pickup. We will notify you when the package arrives.');
     buffer.writeln('');
-    buffer.writeln('$_operatorName 🙏');
+    buffer.writeln(_operatorName);
 
     return buffer.toString();
   }

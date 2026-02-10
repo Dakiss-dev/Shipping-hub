@@ -165,9 +165,9 @@ class ShipmentDetailScreen extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _headerStat('📦', '${packages.length}', l.t('packages')),
+                    _headerStat('📦', packages.length.toString(), l.t('packages')),
                     _headerStat(
-                        '⚖️', '${totalWeight.toStringAsFixed(1)}', 'kg'),
+                        '⚖️', totalWeight.toStringAsFixed(1), 'kg'),
                     _headerStat(
                         '💰', '$currency${totalRevenue.toStringAsFixed(0)}', l.t('total')),
                   ],

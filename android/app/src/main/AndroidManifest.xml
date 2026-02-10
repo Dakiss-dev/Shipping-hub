@@ -1,7 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.READ_CONTACTS"/>
     <application
-        android:label="shipping_hub"
+        android:label="Shipping Hub"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -44,3 +44,4 @@
         </intent>
     </queries>
 </manifest>
+

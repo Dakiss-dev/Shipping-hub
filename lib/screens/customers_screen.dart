@@ -3,7 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../models/models.dart';
+import '../models/country_codes.dart';
 import '../services/contact_service.dart';
+import '../widgets/phone_input.dart';
 import '../theme.dart';
 
 class CustomersScreen extends StatefulWidget {
@@ -113,7 +115,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          customer.phone,
+                          customer.fullPhone,
                           style: const TextStyle(
                               color: AppColors.textSecondary, fontSize: 13),
                         ),
@@ -272,6 +274,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
     final phoneController = TextEditingController();
     final emailController = TextEditingController();
     final formKey = GlobalKey<FormState>();
+    CountryCode customerCountryCode = defaultCountryCode;
 
     showDialog(
       context: context,
@@ -292,13 +295,11 @@ class _CustomersScreenState extends State<CustomersScreen> {
                     v == null || v.isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 12),
-              TextFormField(
+              PhoneInput(
                 controller: phoneController,
-                decoration: InputDecoration(
-                  labelText: provider.l10n.t('phone'),
-                  prefixIcon: const Icon(Icons.phone),
-                ),
-                keyboardType: TextInputType.phone,
+                label: provider.l10n.t('phone'),
+                initialCountryCode: customerCountryCode,
+                onCountryCodeChanged: (code) => customerCountryCode = code,
                 validator: (v) =>
                     v == null || v.isEmpty ? 'Required' : null,
               ),
@@ -325,6 +326,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                 provider.addCustomer(Customer(
                   name: nameController.text,
                   phone: phoneController.text,
+                  phoneCountryCode: customerCountryCode.dialCode,
                   email: emailController.text.isNotEmpty
                       ? emailController.text
                       : null,
@@ -345,6 +347,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
     final phoneController = TextEditingController(text: customer.phone);
     final emailController = TextEditingController(text: customer.email ?? '');
     final formKey = GlobalKey<FormState>();
+    CountryCode editCountryCode = findCountryByDialCode(customer.phoneCountryCode) ?? defaultCountryCode;
 
     showDialog(
       context: context,
@@ -365,13 +368,11 @@ class _CustomersScreenState extends State<CustomersScreen> {
                     v == null || v.isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 12),
-              TextFormField(
+              PhoneInput(
                 controller: phoneController,
-                decoration: InputDecoration(
-                  labelText: provider.l10n.t('phone'),
-                  prefixIcon: const Icon(Icons.phone),
-                ),
-                keyboardType: TextInputType.phone,
+                label: provider.l10n.t('phone'),
+                initialCountryCode: editCountryCode,
+                onCountryCodeChanged: (code) => editCountryCode = code,
                 validator: (v) =>
                     v == null || v.isEmpty ? 'Required' : null,
               ),
@@ -396,6 +397,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
               if (formKey.currentState!.validate()) {
                 customer.name = nameController.text;
                 customer.phone = phoneController.text;
+                customer.phoneCountryCode = editCountryCode.dialCode;
                 customer.email = emailController.text.isNotEmpty
                     ? emailController.text
                     : null;

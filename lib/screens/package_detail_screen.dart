@@ -169,7 +169,7 @@ class PackageDetailScreen extends StatelessWidget {
 
           const SizedBox(height: 8),
 
-          // Customer Info
+          // Customer Info (Sender)
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -181,7 +181,7 @@ class PackageDetailScreen extends StatelessWidget {
                       const Icon(Icons.person, color: AppColors.navy, size: 20),
                       const SizedBox(width: 8),
                       Text(
-                        l.t('customers'),
+                        '${l.t('customers')} (${l.t('sendToSender').replaceAll('Send to ', '')})',
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 14,
@@ -193,7 +193,7 @@ class PackageDetailScreen extends StatelessWidget {
                   _detailRow(Icons.person_outline, l.t('customerName'),
                       customer?.name ?? 'Unknown'),
                   _detailRow(
-                      Icons.phone_outlined, l.t('phone'), customer?.phone ?? 'N/A'),
+                      Icons.phone_outlined, l.t('phone'), customer?.fullPhone ?? 'N/A'),
                 ],
               ),
             ),
@@ -229,7 +229,7 @@ class PackageDetailScreen extends StatelessWidget {
                           l.t('receiverName'), pkg.receiverName!),
                     if (pkg.receiverPhone != null)
                       _detailRow(Icons.phone_outlined,
-                          l.t('receiverPhone'), pkg.receiverPhone!),
+                          l.t('receiverPhone'), _fullReceiverPhone(pkg)),
                   ],
                 ),
               ),
@@ -335,7 +335,7 @@ class PackageDetailScreen extends StatelessWidget {
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () => _shareViaWhatsApp(
-                        context, provider, pkg, customer?.phone, false),
+                        context, provider, pkg, null, false),
                     icon: const Icon(Icons.person, size: 18),
                     label: Text(
                         '${l.t('sendToSender')} ${customer != null ? '(${customer.name})' : ''}'),
@@ -354,7 +354,7 @@ class PackageDetailScreen extends StatelessWidget {
                     width: double.infinity,
                     child: ElevatedButton.icon(
                       onPressed: () => _shareViaWhatsApp(
-                          context, provider, pkg, pkg.receiverPhone, true),
+                          context, provider, pkg, null, true),
                       icon: const Icon(Icons.person_pin_circle, size: 18),
                       label: Text(
                           '${l.t('sendToReceiver')} ${pkg.receiverName != null ? '(${pkg.receiverName})' : ''}'),
@@ -371,11 +371,11 @@ class PackageDetailScreen extends StatelessWidget {
                     child: OutlinedButton.icon(
                       onPressed: () {
                         _shareViaWhatsApp(
-                            context, provider, pkg, customer?.phone, false);
-                        Future.delayed(const Duration(seconds: 1), () {
+                            context, provider, pkg, null, false);
+                        Future.delayed(const Duration(seconds: 2), () {
                           if (pkg.receiverPhone != null) {
                             _shareViaWhatsApp(context, provider, pkg,
-                                pkg.receiverPhone, true);
+                                null, true);
                           }
                         });
                       },
@@ -437,16 +437,42 @@ class PackageDetailScreen extends StatelessWidget {
     SharePlus.instance.share(ShareParams(text: receipt));
   }
 
+  /// Build the full international receiver phone number
+  String _fullReceiverPhone(ShippingPackage pkg) {
+    final digits = (pkg.receiverPhone ?? '').replaceAll(RegExp(r'[^\d]'), '');
+    if (digits.isEmpty) return pkg.receiverPhone ?? '';
+    // If already has a country code stored, use it
+    final code = pkg.receiverPhoneCountryCode ?? '+1';
+    return '$code$digits';
+  }
+
+  /// Build the full international phone for WhatsApp (digits only, no + for wa.me)
+  String _whatsAppPhone(String fullPhone) {
+    // wa.me expects digits only (no + sign)
+    return fullPhone.replaceAll(RegExp(r'[^\d]'), '');
+  }
+
   void _shareViaWhatsApp(BuildContext context, AppProvider provider,
-      ShippingPackage pkg, String? phoneNumber, bool isReceiver) {
+      ShippingPackage pkg, String? rawPhoneOverride, bool isReceiver) {
     final receipt = isReceiver
         ? provider.generateReceiverReceipt(pkg)
         : provider.generateReceipt(pkg);
-    final phone = phoneNumber?.replaceAll(RegExp(r'[^\d+]'), '') ?? '';
+
+    String fullPhone = '';
+    if (isReceiver) {
+      // Receiver: build from country code + digits
+      fullPhone = _fullReceiverPhone(pkg);
+    } else {
+      // Sender (customer): use the Customer.fullPhone which includes country code
+      final customer = provider.getCustomer(pkg.customerId);
+      fullPhone = customer?.fullPhone ?? rawPhoneOverride ?? '';
+    }
+
+    final waPhone = _whatsAppPhone(fullPhone);
     final encodedText = Uri.encodeComponent(receipt);
 
-    final whatsappUrl = phone.isNotEmpty
-        ? 'https://wa.me/$phone?text=$encodedText'
+    final whatsappUrl = waPhone.isNotEmpty
+        ? 'https://wa.me/$waPhone?text=$encodedText'
         : 'https://wa.me/?text=$encodedText';
 
     launchUrl(Uri.parse(whatsappUrl), mode: LaunchMode.externalApplication);

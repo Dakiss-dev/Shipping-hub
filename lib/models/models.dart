@@ -27,6 +27,7 @@ class Customer {
   final String id;
   String name;
   String phone;
+  String phoneCountryCode;
   String? email;
   final DateTime createdAt;
 
@@ -34,15 +35,25 @@ class Customer {
     String? id,
     required this.name,
     required this.phone,
+    this.phoneCountryCode = '+1',
     this.email,
     DateTime? createdAt,
   })  : id = id ?? _uuid.v4(),
         createdAt = createdAt ?? DateTime.now();
 
+  /// Full international phone number
+  String get fullPhone {
+    final digits = phone.replaceAll(RegExp(r'[^\d]'), '');
+    if (digits.isEmpty) return phone;
+    if (phone.startsWith('+')) return phone; // Already international
+    return '$phoneCountryCode$digits';
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
         'phone': phone,
+        'phoneCountryCode': phoneCountryCode,
         'email': email,
         'createdAt': createdAt.toIso8601String(),
       };
@@ -51,6 +62,7 @@ class Customer {
         id: json['id'] as String,
         name: json['name'] as String,
         phone: json['phone'] as String,
+        phoneCountryCode: json['phoneCountryCode'] as String? ?? '+1',
         email: json['email'] as String?,
         createdAt: DateTime.parse(json['createdAt'] as String),
       );
@@ -147,6 +159,7 @@ class ShippingPackage {
   // Receiver (destinataire) info
   String? receiverName;
   String? receiverPhone;
+  String? receiverPhoneCountryCode;
 
   ShippingPackage({
     String? id,
@@ -165,6 +178,7 @@ class ShippingPackage {
     this.notes,
     this.receiverName,
     this.receiverPhone,
+    this.receiverPhoneCountryCode,
   })  : id = id ?? _uuid.v4(),
         referenceNumber = referenceNumber ?? _generateRefNumber(),
         createdAt = createdAt ?? DateTime.now();
@@ -194,6 +208,7 @@ class ShippingPackage {
         'notes': notes,
         'receiverName': receiverName,
         'receiverPhone': receiverPhone,
+        'receiverPhoneCountryCode': receiverPhoneCountryCode,
       };
 
   factory ShippingPackage.fromJson(Map<String, dynamic> json) =>
@@ -219,6 +234,7 @@ class ShippingPackage {
         notes: json['notes'] as String?,
         receiverName: json['receiverName'] as String?,
         receiverPhone: json['receiverPhone'] as String?,
+        receiverPhoneCountryCode: json['receiverPhoneCountryCode'] as String?,
       );
 }
 

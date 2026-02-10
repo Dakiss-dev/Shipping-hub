@@ -4,7 +4,9 @@ import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import '../providers/app_provider.dart';
 import '../models/models.dart';
+import '../models/country_codes.dart';
 import '../services/contact_service.dart';
+import '../widgets/phone_input.dart';
 import '../theme.dart';
 
 class NewPackageScreen extends StatefulWidget {
@@ -30,6 +32,7 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
   SeaItemType? _selectedSeaItem;
   double _calculatedPrice = 0.0;
   bool _isCustomWeight = false;
+  CountryCode _receiverCountryCode = defaultCountryCode;
 
   bool get isAir => widget.shipment.type == ShipmentType.air;
 
@@ -553,14 +556,13 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
             ),
           ),
           const SizedBox(height: 10),
-          TextFormField(
+          PhoneInput(
             controller: _receiverPhoneController,
-            keyboardType: TextInputType.phone,
-            decoration: InputDecoration(
-              labelText: l10n.t('receiverPhone'),
-              prefixIcon: const Icon(Icons.phone_outlined, size: 20),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            ),
+            label: l10n.t('receiverPhone'),
+            initialCountryCode: _receiverCountryCode,
+            onCountryCodeChanged: (code) {
+              _receiverCountryCode = code;
+            },
           ),
         ],
       ),
@@ -953,6 +955,7 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
     final nameController = TextEditingController();
     final phoneController = TextEditingController();
     final formKey = GlobalKey<FormState>();
+    CountryCode customerCountryCode = defaultCountryCode;
 
     showDialog(
       context: context,
@@ -973,13 +976,11 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
                     v == null || v.isEmpty ? 'Required' : null,
               ),
               const SizedBox(height: 12),
-              TextFormField(
+              PhoneInput(
                 controller: phoneController,
-                decoration: InputDecoration(
-                  labelText: provider.l10n.t('phone'),
-                  prefixIcon: const Icon(Icons.phone),
-                ),
-                keyboardType: TextInputType.phone,
+                label: provider.l10n.t('phone'),
+                initialCountryCode: customerCountryCode,
+                onCountryCodeChanged: (code) => customerCountryCode = code,
                 validator: (v) =>
                     v == null || v.isEmpty ? 'Required' : null,
               ),
@@ -997,6 +998,7 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
                 final customer = Customer(
                   name: nameController.text,
                   phone: phoneController.text,
+                  phoneCountryCode: customerCountryCode.dialCode,
                 );
                 provider.addCustomer(customer);
                 setState(() => _selectedCustomer = customer);
@@ -1051,6 +1053,9 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
           : null,
       receiverPhone: _receiverPhoneController.text.isNotEmpty
           ? _receiverPhoneController.text
+          : null,
+      receiverPhoneCountryCode: _receiverPhoneController.text.isNotEmpty
+          ? _receiverCountryCode.dialCode
           : null,
     );
 

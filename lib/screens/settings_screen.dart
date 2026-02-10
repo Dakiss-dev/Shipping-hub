@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../models/models.dart';
 import '../theme.dart';
+import 'auth_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -200,6 +201,93 @@ class SettingsScreen extends StatelessWidget {
                           context, provider, entry.key, entry.value),
                     );
                   }),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Cloud Sync & Account
+          _sectionTitle('Cloud Sync'),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  if (provider.isAuthenticated) ...[
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const CircleAvatar(
+                        backgroundColor: AppColors.success,
+                        radius: 18,
+                        child: Icon(Icons.cloud_done, color: Colors.white, size: 20),
+                      ),
+                      title: const Text('Connected', style: TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: Text(
+                        provider.currentUserEmail ?? '',
+                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                    ),
+                    const Divider(),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: provider.isSyncing
+                          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.sync, color: AppColors.navy),
+                      title: Text(provider.isSyncing ? 'Syncing...' : 'Sync Now'),
+                      subtitle: provider.pendingSyncCount > 0
+                          ? Text('${provider.pendingSyncCount} changes pending',
+                              style: const TextStyle(color: AppColors.warning, fontSize: 12))
+                          : const Text('All data synced', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                      onTap: provider.isSyncing ? null : () => provider.manualSync(),
+                    ),
+                    const Divider(),
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.logout, color: AppColors.danger),
+                      title: const Text('Sign Out', style: TextStyle(color: AppColors.danger)),
+                      onTap: () async {
+                        await provider.signOut();
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Signed out. Data is still saved locally.'),
+                              backgroundColor: AppColors.info,
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ] else ...[
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(
+                        backgroundColor: AppColors.navy.withValues(alpha: 0.1),
+                        radius: 18,
+                        child: const Icon(Icons.cloud_off, color: AppColors.navy, size: 20),
+                      ),
+                      title: const Text('Offline Mode', style: TextStyle(fontWeight: FontWeight.w600)),
+                      subtitle: const Text(
+                        'Sign in to sync data across devices',
+                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const AuthScreen()),
+                          );
+                        },
+                        icon: const Icon(Icons.cloud_upload),
+                        label: const Text('Sign In / Sign Up'),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
