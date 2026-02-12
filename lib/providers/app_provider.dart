@@ -38,6 +38,7 @@ class AppProvider extends ChangeNotifier {
   // Auth state
   bool get isAuthenticated => _supabase.isAuthenticated;
   bool get isSupabaseConfigured => _supabase.isConfigured;
+  bool get isEmailConfirmed => _supabase.isEmailConfirmed;
   String? get currentUserEmail => _supabase.client?.auth.currentUser?.email;
   int get pendingSyncCount => _sync.pendingSyncCount;
 
@@ -158,6 +159,42 @@ class AppProvider extends ChangeNotifier {
       return null;
     } catch (e) {
       return e.toString();
+    }
+  }
+
+  /// Sign in with Google OAuth
+  Future<bool> signInWithGoogle() async {
+    if (!_supabase.isConfigured) return false;
+    try {
+      final success = await _supabase.signInWithGoogle();
+      if (success) {
+        notifyListeners();
+      }
+      return success;
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Auth] Google sign-in error: $e');
+      return false;
+    }
+  }
+
+  /// Resend email confirmation
+  Future<String?> resendConfirmation(String email) async {
+    try {
+      await _supabase.resendConfirmationEmail(email);
+      return null;
+    } catch (e) {
+      return e.toString();
+    }
+  }
+
+  /// Refresh session to check if email was confirmed
+  Future<bool> checkEmailConfirmation() async {
+    try {
+      await _supabase.refreshSession();
+      notifyListeners();
+      return _supabase.isEmailConfirmed;
+    } catch (e) {
+      return false;
     }
   }
 

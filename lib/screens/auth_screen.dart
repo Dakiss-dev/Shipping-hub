@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../theme.dart';
+import 'verify_email_screen.dart';
 
 /// Redesigned auth screen — inspired by Stripe's clean, confidence-building signup.
 /// Key UX decisions:
@@ -30,7 +31,9 @@ class _AuthScreenState extends State<AuthScreen>
     with SingleTickerProviderStateMixin {
   late bool _isSignUp;
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
   bool _obscurePassword = true;
+  bool _showVerification = false;
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -91,13 +94,43 @@ class _AuthScreenState extends State<AuthScreen>
     if (error != null) {
       setState(() => _errorMessage = _parseError(error!));
     } else {
-      // Success!
+      // Check if email needs verification (signup flow)
+      final prov = context.read<AppProvider>();
+      if (_isSignUp && !prov.isEmailConfirmed) {
+        // Show verification screen
+        setState(() => _showVerification = true);
+      } else {
+        // Fully authenticated — proceed
+        if (widget.onAuthComplete != null) {
+          widget.onAuthComplete!();
+        } else {
+          Navigator.pop(context);
+        }
+      }
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    setState(() {
+      _isGoogleLoading = true;
+      _errorMessage = null;
+    });
+
+    final provider = context.read<AppProvider>();
+    final success = await provider.signInWithGoogle();
+
+    if (!mounted) return;
+    setState(() => _isGoogleLoading = false);
+
+    if (success) {
+      // Google users are auto-confirmed — skip verification
       if (widget.onAuthComplete != null) {
         widget.onAuthComplete!();
       } else {
         Navigator.pop(context);
       }
     }
+    // If not success, the OAuth popup was likely cancelled — no error needed
   }
 
   Future<void> _forgotPassword() async {
@@ -153,6 +186,31 @@ class _AuthScreenState extends State<AuthScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Show verification screen if needed
+    if (_showVerification) {
+      return VerifyEmailScreen(
+        email: _emailController.text.trim(),
+        onVerified: () {
+          // Email confirmed — proceed to next step
+          if (widget.onAuthComplete != null) {
+            widget.onAuthComplete!();
+          } else {
+            Navigator.pop(context);
+          }
+        },
+        onChangeAccount: () async {
+          // Sign out and go back to auth form
+          final provider = context.read<AppProvider>();
+          await provider.signOut();
+          setState(() {
+            _showVerification = false;
+            _emailController.clear();
+            _passwordController.clear();
+          });
+        },
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.navy,
       body: SafeArea(
@@ -487,6 +545,78 @@ class _AuthScreenState extends State<AuthScreen>
                                 ? Icons.arrow_forward_rounded
                                 : Icons.login_rounded,
                             size: 20,
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+
+            // Divider with "or"
+            const SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(child: Divider(color: Colors.grey.shade300)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  child: Text(
+                    'or',
+                    style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                Expanded(child: Divider(color: Colors.grey.shade300)),
+              ],
+            ),
+            const SizedBox(height: 18),
+
+            // Google Sign-In button
+            SizedBox(
+              height: 52,
+              child: OutlinedButton(
+                onPressed: _isGoogleLoading ? null : _signInWithGoogle,
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.textPrimary,
+                  side: BorderSide(color: Colors.grey.shade300),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  backgroundColor: Colors.white,
+                ),
+                child: _isGoogleLoading
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2.5),
+                      )
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Google "G" logo using text (no image dependency)
+                          Container(
+                            width: 22,
+                            height: 22,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'G',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF4285F4),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Text(
+                            'Continue with Google',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ],
                       ),

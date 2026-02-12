@@ -139,6 +139,45 @@ class SupabaseService {
     return response;
   }
 
+  /// Sign in with Google OAuth (web: popup, mobile: redirect)
+  Future<bool> signInWithGoogle() async {
+    if (_client == null) return false;
+    try {
+      final result = await _client!.auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: kIsWeb ? null : 'io.supabase.shippinghub://login-callback/',
+      );
+      return result;
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Supabase] Google sign-in error: $e');
+      return false;
+    }
+  }
+
+  /// Check if current user's email is confirmed
+  bool get isEmailConfirmed {
+    final user = _client?.auth.currentUser;
+    if (user == null) return false;
+    // Google OAuth users are always confirmed
+    final provider = user.appMetadata['provider'] as String?;
+    if (provider == 'google') return true;
+    return user.emailConfirmedAt != null;
+  }
+
+  /// Resend confirmation email
+  Future<void> resendConfirmationEmail(String email) async {
+    await _client!.auth.resend(type: OtpType.signup, email: email);
+  }
+
+  /// Refresh the current session to pick up email confirmation changes
+  Future<void> refreshSession() async {
+    try {
+      await _client!.auth.refreshSession();
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Supabase] Refresh session error: $e');
+    }
+  }
+
   Future<void> signOut() async {
     await _client!.auth.signOut();
   }
