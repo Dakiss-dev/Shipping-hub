@@ -520,31 +520,85 @@ class DashboardScreen extends StatelessWidget {
   Widget _buildEmptyState(l10n) {
     return Container(
       margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(32),
+      padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: Colors.grey.shade200),
       ),
       child: Column(
         children: [
-          Icon(Icons.inventory_2_outlined,
-              size: 48, color: Colors.grey.shade400),
-          const SizedBox(height: 12),
-          Text(
-            l10n.t('noData'),
-            style: TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 15,
-              fontWeight: FontWeight.w500,
+          // Illustration area
+          Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: AppColors.gold.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.rocket_launch_rounded,
+              size: 40,
+              color: AppColors.gold,
             ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            'Create your first shipment to get started',
+          const SizedBox(height: 20),
+          const Text(
+            'Ready to ship!',
             style: TextStyle(
-              color: Colors.grey.shade400,
+              color: AppColors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Create your first Air or Sea shipment above\nto start tracking packages and customers.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: AppColors.textSecondary,
               fontSize: 13,
+              height: 1.5,
+            ),
+          ),
+          const SizedBox(height: 20),
+          // Quick guide steps
+          _guideStep('1', 'Create a shipment (Air or Sea)'),
+          _guideStep('2', 'Add packages for your customers'),
+          _guideStep('3', 'Share receipts via WhatsApp'),
+        ],
+      ),
+    );
+  }
+
+  Widget _guideStep(String number, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: AppColors.navy.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              number,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+                color: AppColors.navy,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            text,
+            style: const TextStyle(
+              fontSize: 13,
+              color: AppColors.textSecondary,
             ),
           ),
         ],

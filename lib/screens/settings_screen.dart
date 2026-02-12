@@ -280,7 +280,12 @@ class SettingsScreen extends StatelessWidget {
                         onPressed: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => const AuthScreen()),
+                            MaterialPageRoute(
+                              builder: (_) => AuthScreen(
+                                startWithSignUp: false,
+                                onAuthComplete: () => Navigator.pop(context),
+                              ),
+                            ),
                           );
                         },
                         icon: const Icon(Icons.cloud_upload),
