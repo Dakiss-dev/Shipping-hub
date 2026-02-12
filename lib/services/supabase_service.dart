@@ -59,12 +59,63 @@ class SupabaseService {
     required String password,
     String? businessName,
   }) async {
+    final bName = businessName ?? 'My Shipping Business';
     final response = await _client!.auth.signUp(
       email: email,
       password: password,
-      data: {'business_name': businessName ?? 'My Shipping Business'},
+      data: {'business_name': bName},
     );
+
+    // Create operator profile from the app (Supabase blocks triggers on auth.users)
+    if (response.user != null) {
+      // Small delay to let Supabase session fully establish (RLS needs auth.uid())
+      await Future.delayed(const Duration(milliseconds: 500));
+      await _ensureOperatorProfile(
+        userId: response.user!.id,
+        email: email,
+        businessName: bName,
+      );
+    }
+
     return response;
+  }
+
+  /// Ensure operator profile exists — creates it app-side since DB trigger is disabled
+  Future<void> _ensureOperatorProfile({
+    required String userId,
+    required String email,
+    required String businessName,
+  }) async {
+    // Retry up to 3 times — RLS auth session may take a moment after signup
+    for (int attempt = 1; attempt <= 3; attempt++) {
+      try {
+        // Check if profile already exists
+        final existing = await _client!
+            .from('operators')
+            .select('id')
+            .eq('id', userId)
+            .maybeSingle();
+
+        if (existing == null) {
+          await _client!.from('operators').insert({
+            'id': userId,
+            'email': email,
+            'business_name': businessName,
+          });
+        }
+        // Success — exit retry loop
+        if (kDebugMode) debugPrint('[Supabase] Operator profile ensured (attempt $attempt)');
+        return;
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('[Supabase] Ensure operator profile attempt $attempt failed: $e');
+        }
+        if (attempt < 3) {
+          // Wait longer each retry to give RLS session time to propagate
+          await Future.delayed(Duration(milliseconds: 500 * attempt));
+        }
+      }
+    }
   }
 
   Future<AuthResponse> signIn({
@@ -75,6 +126,16 @@ class SupabaseService {
       email: email,
       password: password,
     );
+
+    // Safety net: ensure operator profile exists on login too
+    if (response.user != null) {
+      await _ensureOperatorProfile(
+        userId: response.user!.id,
+        email: email,
+        businessName: 'My Shipping Business',
+      );
+    }
+
     return response;
   }
 
