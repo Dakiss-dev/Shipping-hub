@@ -196,25 +196,24 @@ CREATE TRIGGER update_packages_updated_at
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ==================== AUTO-CREATE OPERATOR PROFILE ====================
--- When a new user signs up, auto-create their operator profile
+-- NOTE: Supabase hosted projects block triggers on auth.users (disabled + locked).
+-- The Flutter app creates operator profiles app-side via _ensureOperatorProfile().
+-- This no-op function is kept so the disabled trigger doesn't crash signups.
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO operators (id, email, business_name)
-  VALUES (
-    NEW.id,
-    NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'business_name', 'My Shipping Business')
-  );
+  -- No-op: operator profile creation is handled by the Flutter app
+  -- after signup/signin to avoid Supabase auth.users trigger restrictions.
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Drop existing trigger if it exists, then create
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
+-- DO NOT create trigger on auth.users — Supabase disables it and it can
+-- cause "Database error saving new user" (500) during signup.
+-- DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+-- CREATE TRIGGER on_auth_user_created
+--   AFTER INSERT ON auth.users
+--   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
 
 -- ==================== PUBLIC TRACKING VIEW ====================
 -- Allows customers to look up package status by reference number
