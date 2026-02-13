@@ -1,13 +1,16 @@
 {
-    "name": "shipping_hub",
-    "short_name": "shipping_hub",
+    "name": "Shipping Hub",
+    "short_name": "Shipping Hub",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0D1B3E",
+    "theme_color": "#0D1B3E",
+    "description": "Professional shipment management for diaspora shipping operators. Track packages, manage customers, and grow your business.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
+    "categories": ["business", "productivity"],
+    "lang": "en",
+    "scope": ".",
     "icons": [
         {
             "src": "icons/Icon-192.png",
