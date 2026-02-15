@@ -107,10 +107,18 @@ class AppProvider extends ChangeNotifier {
   }) async {
     if (!_supabase.isConfigured) return 'Supabase not configured';
     try {
+      // Store the business name to local storage IMMEDIATELY so it's
+      // available in Settings and receipts even before sync completes.
+      final bName = (businessName != null && businessName.trim().isNotEmpty)
+          ? businessName.trim()
+          : 'My Shipping Business';
+      await _storage.setOperatorName(bName);
+      _operatorName = bName;
+
       await _supabase.signUp(
         email: email,
         password: password,
-        businessName: businessName,
+        businessName: bName,
       );
       // After signup, sync local data to cloud
       if (_supabase.isAuthenticated) {
@@ -133,6 +141,8 @@ class AppProvider extends ChangeNotifier {
       await _supabase.signIn(email: email, password: password);
       // After login, pull cloud data and merge
       if (_supabase.isAuthenticated) {
+        // Pull operator profile FIRST so business name is correct immediately
+        await _pullOperatorProfile();
         await _sync.fullSync();
         _loadAll();
         notifyListeners();
@@ -140,6 +150,30 @@ class AppProvider extends ChangeNotifier {
       return null; // success
     } catch (e) {
       return e.toString();
+    }
+  }
+
+  /// Pull operator profile from Supabase and store locally.
+  /// Ensures the business name, currency, language etc. are
+  /// correct in Settings and receipts from the moment the user logs in.
+  Future<void> _pullOperatorProfile() async {
+    try {
+      final profile = await _supabase.getOperatorProfile();
+      if (profile != null) {
+        if (profile['business_name'] != null) {
+          final name = profile['business_name'] as String;
+          await _storage.setOperatorName(name);
+          _operatorName = name;
+        }
+        if (profile['currency'] != null) {
+          await _storage.setCurrency(profile['currency'] as String);
+        }
+        if (profile['language'] != null) {
+          await _storage.setLanguage(profile['language'] as String);
+        }
+      }
+    } catch (_) {
+      // Non-fatal — sync will catch it later
     }
   }
 

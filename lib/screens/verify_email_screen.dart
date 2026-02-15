@@ -1,12 +1,20 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../providers/app_provider.dart';
 import '../theme.dart';
 
 /// Beautiful email verification pending screen.
 /// Inspired by Linear/Notion: clean, animated, non-stressful.
-/// Auto-checks every 3 seconds so user doesn't have to manually refresh.
+///
+/// Uses TWO detection strategies:
+///  1. Supabase onAuthStateChange listener — fires instantly when the user
+///     clicks the verification link in the SAME browser (Supabase magic link
+///     redirects back and refreshes the session).
+///  2. Polling fallback (every 4s) — catches the case where the user verifies
+///     in a DIFFERENT tab/browser/device.
 class VerifyEmailScreen extends StatefulWidget {
   final String email;
   final VoidCallback onVerified;
@@ -26,11 +34,13 @@ class VerifyEmailScreen extends StatefulWidget {
 class _VerifyEmailScreenState extends State<VerifyEmailScreen>
     with SingleTickerProviderStateMixin {
   Timer? _pollingTimer;
+  StreamSubscription<AuthState>? _authSubscription;
   bool _resending = false;
   bool _resent = false;
   int _resendCooldown = 0;
   Timer? _cooldownTimer;
   late AnimationController _pulseController;
+  bool _verified = false; // guard against double-fire
 
   @override
   void initState() {
@@ -40,19 +50,63 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen>
       duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
 
-    // Start polling for email confirmation every 3 seconds
+    // Strategy 1: Listen to Supabase auth state changes
+    // This fires when the confirmation link redirects back to the app
+    _listenAuthState();
+
+    // Strategy 2: Poll for confirmation every 4 seconds as a fallback
+    // Handles the case where user clicks in another tab/device
     _startPolling();
   }
 
+  void _listenAuthState() {
+    try {
+      final supabase = Supabase.instance.client;
+      _authSubscription = supabase.auth.onAuthStateChange.listen((data) {
+        final event = data.event;
+        final session = data.session;
+
+        // If the user's session is refreshed or signed in, check confirmation
+        if (event == AuthChangeEvent.signedIn ||
+            event == AuthChangeEvent.tokenRefreshed ||
+            event == AuthChangeEvent.userUpdated) {
+          if (session?.user.emailConfirmedAt != null && !_verified) {
+            _onVerified();
+          }
+        }
+      });
+    } catch (_) {
+      // Supabase not initialized — rely on polling only
+    }
+  }
+
   void _startPolling() {
-    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
+    _pollingTimer = Timer.periodic(const Duration(seconds: 4), (_) async {
+      if (_verified) return;
       final provider = context.read<AppProvider>();
       final confirmed = await provider.checkEmailConfirmation();
-      if (confirmed && mounted) {
-        _pollingTimer?.cancel();
-        widget.onVerified();
+      if (confirmed && mounted && !_verified) {
+        _onVerified();
       }
     });
+  }
+
+  void _onVerified() {
+    if (_verified) return; // prevent double-fire
+    _verified = true;
+    _pollingTimer?.cancel();
+    _authSubscription?.cancel();
+
+    // Small celebration haptic
+    HapticFeedback.mediumImpact();
+
+    // Brief success animation before proceeding
+    if (mounted) {
+      setState(() {});
+      Future.delayed(const Duration(milliseconds: 600), () {
+        if (mounted) widget.onVerified();
+      });
+    }
   }
 
   Future<void> _resendEmail() async {
@@ -71,7 +125,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen>
     setState(() {
       _resending = false;
       _resent = error == null;
-      _resendCooldown = 60; // 60 second cooldown
+      _resendCooldown = 60;
     });
 
     // Start cooldown timer
@@ -103,6 +157,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen>
   void dispose() {
     _pollingTimer?.cancel();
     _cooldownTimer?.cancel();
+    _authSubscription?.cancel();
     _pulseController.dispose();
     super.dispose();
   }
@@ -118,14 +173,14 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen>
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Animated email icon
-                _buildAnimatedIcon(),
+                // Animated email icon (or success checkmark)
+                _verified ? _buildSuccessIcon() : _buildAnimatedIcon(),
                 const SizedBox(height: 36),
 
                 // Title
-                const Text(
-                  'Check your email',
-                  style: TextStyle(
+                Text(
+                  _verified ? 'Email verified!' : 'Check your email',
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
@@ -144,67 +199,81 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen>
                       height: 1.5,
                     ),
                     children: [
-                      const TextSpan(text: 'We sent a verification link to\n'),
                       TextSpan(
-                        text: widget.email,
-                        style: const TextStyle(
-                          color: AppColors.gold,
-                          fontWeight: FontWeight.w700,
-                        ),
+                        text: _verified
+                            ? 'Welcome aboard! Redirecting you now...'
+                            : 'We sent a verification link to\n',
                       ),
+                      if (!_verified)
+                        TextSpan(
+                          text: widget.email,
+                          style: const TextStyle(
+                            color: AppColors.gold,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 36),
 
-                // Status card
-                _buildStatusCard(),
-                const SizedBox(height: 24),
+                if (!_verified) ...[
+                  const SizedBox(height: 28),
 
-                // Resend button
-                _buildResendButton(),
-                const SizedBox(height: 16),
+                  // PROMINENT spam/junk warning — #1 user complaint
+                  _buildSpamWarning(),
+                  const SizedBox(height: 20),
 
-                // Divider
-                Row(
-                  children: [
-                    Expanded(
+                  // Status card
+                  _buildStatusCard(),
+                  const SizedBox(height: 24),
+
+                  // Resend button
+                  _buildResendButton(),
+                  const SizedBox(height: 16),
+
+                  // Divider
+                  Row(
+                    children: [
+                      Expanded(
                         child: Divider(
-                            color: Colors.white.withValues(alpha: 0.1))),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        'or',
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.3),
-                          fontSize: 13,
+                            color: Colors.white.withValues(alpha: 0.1)),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: Text(
+                          'or',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.3),
+                            fontSize: 13,
+                          ),
                         ),
                       ),
-                    ),
-                    Expanded(
+                      Expanded(
                         child: Divider(
-                            color: Colors.white.withValues(alpha: 0.1))),
-                  ],
-                ),
-                const SizedBox(height: 16),
+                            color: Colors.white.withValues(alpha: 0.1)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
 
-                // Change account
-                TextButton(
-                  onPressed: widget.onChangeAccount,
-                  child: Text(
-                    'Use a different account',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.5),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+                  // Change account
+                  TextButton(
+                    onPressed: widget.onChangeAccount,
+                    child: Text(
+                      'Use a different account',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.5),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
-                ),
 
-                const SizedBox(height: 8),
+                  const SizedBox(height: 8),
 
-                // Email tips
-                _buildEmailTips(),
+                  // Additional email tips
+                  _buildEmailTips(),
+                ],
               ],
             ),
           ),
@@ -256,6 +325,100 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen>
     );
   }
 
+  Widget _buildSuccessIcon() {
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.elasticOut,
+      builder: (context, value, child) {
+        return Transform.scale(
+          scale: value,
+          child: Container(
+            width: 110,
+            height: 110,
+            decoration: BoxDecoration(
+              color: AppColors.success.withValues(alpha: 0.2),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Container(
+                width: 80,
+                height: 80,
+                decoration: const BoxDecoration(
+                  color: AppColors.success,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check_rounded,
+                  color: Colors.white,
+                  size: 44,
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Big, unmissable spam-folder warning — the #1 pain point
+  Widget _buildSpamWarning() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3E0).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFFFF9800).withValues(alpha: 0.35),
+          width: 1.5,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFFFF9800).withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.warning_amber_rounded,
+              color: Color(0xFFFF9800),
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Check your Spam / Junk folder!',
+                  style: TextStyle(
+                    color: Color(0xFFFF9800),
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Verification emails often land in spam. If you find it there, tap the link and mark it "Not Spam" to get future emails in your inbox.',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.55),
+                    fontSize: 12.5,
+                    height: 1.45,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildStatusCard() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -293,7 +456,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen>
           ),
           const SizedBox(height: 14),
           Text(
-            'Click the link in the email and this page will update automatically.',
+            'Click the link in the email. This page updates automatically — no need to come back here manually.',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.4),
               fontSize: 13,
@@ -379,7 +542,7 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen>
       child: Column(
         children: [
           Text(
-            "Don't see the email?",
+            'Still nothing?',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.5),
               fontSize: 13,
@@ -387,10 +550,13 @@ class _VerifyEmailScreenState extends State<VerifyEmailScreen>
             ),
           ),
           const SizedBox(height: 8),
-          _tipRow(Icons.all_inbox_rounded, 'Check spam / junk folder'),
-          _tipRow(Icons.schedule_rounded, 'Wait a minute and try resend'),
+          _tipRow(Icons.schedule_rounded, 'Wait 1-2 min, then resend'),
           _tipRow(Icons.alternate_email_rounded,
-              'Make sure ${widget.email} is correct'),
+              'Verify that ${widget.email} is correct'),
+          _tipRow(Icons.search_rounded,
+              'Search your inbox for "Shipping Hub" or "verify"'),
+          _tipRow(Icons.devices_other_rounded,
+              'You can click the link on any device or tab'),
         ],
       ),
     );

@@ -92,7 +92,13 @@ class _AuthScreenState extends State<AuthScreen>
     setState(() => _isLoading = false);
 
     if (error != null) {
-      setState(() => _errorMessage = _parseError(error!));
+      // If the error is about email not being confirmed, show
+      // the verification screen instead of a dead-end error message.
+      if (error.toLowerCase().contains('email not confirmed')) {
+        setState(() => _showVerification = true);
+      } else {
+        setState(() => _errorMessage = _parseError(error!));
+      }
     } else {
       // Check if email needs verification (signup flow)
       final prov = context.read<AppProvider>();

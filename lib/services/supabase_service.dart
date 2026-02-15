@@ -128,11 +128,25 @@ class SupabaseService {
     );
 
     // Safety net: ensure operator profile exists on login too
+    // Pull existing business name from Supabase instead of hardcoding default
     if (response.user != null) {
+      String existingName = 'My Shipping Business';
+      try {
+        final profile = await _client!
+            .from('operators')
+            .select('business_name')
+            .eq('id', response.user!.id)
+            .maybeSingle();
+        if (profile != null && profile['business_name'] != null) {
+          existingName = profile['business_name'] as String;
+        }
+      } catch (_) {
+        // If fetch fails, fall back to default
+      }
       await _ensureOperatorProfile(
         userId: response.user!.id,
         email: email,
-        businessName: 'My Shipping Business',
+        businessName: existingName,
       );
     }
 
