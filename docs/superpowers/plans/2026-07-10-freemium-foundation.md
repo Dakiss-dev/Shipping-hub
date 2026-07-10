@@ -681,6 +681,9 @@ import '../../models/models.dart';
 /// All timestamps are serialized in UTC ('Z' suffix): Dart's
 /// toIso8601String() on a local DateTime carries no offset, and Postgres
 /// timestamptz would misread it as UTC, corrupting the instant.
+///
+/// Parsing converts back to local time: the app's display sites (receipts,
+/// detail screens) format zone-sensitive fields and expect local DateTimes.
 
 Map<String, dynamic> customerToRow(Customer c, String operatorId) => {
       'id': c.id,
@@ -701,10 +704,10 @@ Customer customerFromRow(Map<String, dynamic> row) => Customer(
       phone: row['phone'] as String,
       phoneCountryCode: row['phone_country_code'] as String? ?? '+1',
       email: row['email'] as String?,
-      createdAt: DateTime.parse(row['created_at'] as String),
-      updatedAt: DateTime.parse(row['updated_at'] as String),
+      createdAt: DateTime.parse(row['created_at'] as String).toLocal(),
+      updatedAt: DateTime.parse(row['updated_at'] as String).toLocal(),
       deletedAt: row['deleted_at'] != null
-          ? DateTime.parse(row['deleted_at'] as String)
+          ? DateTime.parse(row['deleted_at'] as String).toLocal()
           : null,
     );
 
@@ -731,17 +734,17 @@ Shipment shipmentFromRow(Map<String, dynamic> row) => Shipment(
       destination: row['destination'] as String,
       status:
           ShipmentStatus.values.firstWhere((e) => e.name == row['status']),
-      createdAt: DateTime.parse(row['created_at'] as String),
+      createdAt: DateTime.parse(row['created_at'] as String).toLocal(),
       departureDate: row['departure_date'] != null
-          ? DateTime.parse(row['departure_date'] as String)
+          ? DateTime.parse(row['departure_date'] as String).toLocal()
           : null,
       estimatedArrival: row['estimated_arrival'] != null
-          ? DateTime.parse(row['estimated_arrival'] as String)
+          ? DateTime.parse(row['estimated_arrival'] as String).toLocal()
           : null,
       notes: row['notes'] as String?,
-      updatedAt: DateTime.parse(row['updated_at'] as String),
+      updatedAt: DateTime.parse(row['updated_at'] as String).toLocal(),
       deletedAt: row['deleted_at'] != null
-          ? DateTime.parse(row['deleted_at'] as String)
+          ? DateTime.parse(row['deleted_at'] as String).toLocal()
           : null,
     );
 
@@ -787,15 +790,15 @@ ShippingPackage packageFromRow(Map<String, dynamic> row) => ShippingPackage(
       price: (row['price'] as num).toDouble(),
       paymentStatus: PaymentStatus.values
           .firstWhere((e) => e.name == row['payment_status']),
-      createdAt: DateTime.parse(row['created_at'] as String),
+      createdAt: DateTime.parse(row['created_at'] as String).toLocal(),
       notes: row['notes'] as String?,
       receiverName: row['receiver_name'] as String?,
       receiverPhone: row['receiver_phone'] as String?,
       receiverPhoneCountryCode:
           row['receiver_phone_country_code'] as String?,
-      updatedAt: DateTime.parse(row['updated_at'] as String),
+      updatedAt: DateTime.parse(row['updated_at'] as String).toLocal(),
       deletedAt: row['deleted_at'] != null
-          ? DateTime.parse(row['deleted_at'] as String)
+          ? DateTime.parse(row['deleted_at'] as String).toLocal()
           : null,
     );
 ```
@@ -2651,3 +2654,4 @@ Logged as each task's two-stage review lands; the code blocks above have been up
 - **Task 2:** backfilled `test/storage_service_test.dart` (tombstone filtering, singular getters, getPackage); debugPrint on collision-guard exhaustion; `_savePackage` in `new_package_screen.dart` made async so the receipt SnackBar reads the post-guard reference number. Residual: collision-guard regeneration test lands with Task 9 when the provider becomes testable.
 - **Task 3:** entry `version` field + `removeIfVersion(key, expectedVersion)` close a coalesce-during-flush data-loss race; Task 5's flush loop uses the guard and gates tombstone hard-deletes on successful removal; attempts/lastError reset on coalesce documented and tested.
 - **Task 4:** all row timestamps serialized via `.toUtc()` (offset-less local ISO strings would be misread as UTC by timestamptz, corrupting instants); wire-shaped PostgREST payload test; unknown-enum StateError documented by test. Per-row crash isolation added to Task 7's `pullAll` (`_mapRows` skips unparseable rows).
+- **Task 4 (second round):** `*FromRow` normalizes all parsed timestamps via `.toLocal()` — three display sites (`package_detail_screen.dart:286`, `app_provider.dart` receipts) format zone-sensitive fields, and UTC DateTimes would print wrong calendar days on receipts after a cloud restore.
