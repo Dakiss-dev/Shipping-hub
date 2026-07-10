@@ -1397,7 +1397,8 @@ Add to `lib/services/sync/sync_engine.dart`, after the `_hardDeleteIfTombstone` 
     try {
       try {
         await _flushQueue();
-      } on SyncBackendException catch (e) {
+      } catch (e) {
+        // Catch-all mirrors flush(): a corrupt entry must surface, not wedge.
         flushErrored = true;
         lastError = e.toString();
         onSyncError?.call(lastError!);
@@ -1409,7 +1410,7 @@ Add to `lib/services/sync/sync_engine.dart`, after the `_hardDeleteIfTombstone` 
       if (!flushErrored) lastError = null;
       lastSyncedAt = DateTime.now();
       onSyncCompleted?.call();
-    } on SyncBackendException catch (e) {
+    } catch (e) {
       lastError = e.toString();
       onSyncError?.call(lastError!);
     } finally {
@@ -2654,4 +2655,5 @@ Logged as each task's two-stage review lands; the code blocks above have been up
 - **Task 2:** backfilled `test/storage_service_test.dart` (tombstone filtering, singular getters, getPackage); debugPrint on collision-guard exhaustion; `_savePackage` in `new_package_screen.dart` made async so the receipt SnackBar reads the post-guard reference number. Residual: collision-guard regeneration test lands with Task 9 when the provider becomes testable.
 - **Task 3:** entry `version` field + `removeIfVersion(key, expectedVersion)` close a coalesce-during-flush data-loss race; Task 5's flush loop uses the guard and gates tombstone hard-deletes on successful removal; attempts/lastError reset on coalesce documented and tested.
 - **Task 4:** all row timestamps serialized via `.toUtc()` (offset-less local ISO strings would be misread as UTC by timestamptz, corrupting instants); wire-shaped PostgREST payload test; unknown-enum StateError documented by test. Per-row crash isolation added to Task 7's `pullAll` (`_mapRows` skips unparseable rows).
+- **Task 5:** four review findings fixed (commit 028263b, applied inline by the coordinator during a subagent session-limit outage, verified by gates): (1) flush() rerun flag — a flush requested mid-round reruns in the same call instead of being dropped, so mid-push edits are never stranded; (2) catch-all error handling in flush() plus `default: throw` in `_pushEntry` — corrupt or unknown queue entries surface as visible sync errors instead of wedging the queue silently; (3) `removeIfVersion`/`recordFailure` are entry-based and identity-guarded (table + recordId + version), hardening against stale snapshots across namespace switches; (4) `init()` seeds connectivity via `checkConnectivity()` and auto-flush triggers gate on `_hasConnectivity` (explicit flush stays ungated). Five tests added (engine 11, queue 8). Carried to Task 9: quiesce `_isSyncing` before namespace switch and clear engine error state on switch. Task 6's fullSync catches updated to match.
 - **Task 4 (second round):** `*FromRow` normalizes all parsed timestamps via `.toLocal()` — three display sites (`package_detail_screen.dart:286`, `app_provider.dart` receipts) format zone-sensitive fields, and UTC DateTimes would print wrong calendar days on receipts after a cloud restore.
