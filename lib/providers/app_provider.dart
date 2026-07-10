@@ -1,13 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 import '../models/models.dart';
 import '../services/storage_service.dart';
-import '../services/sync_service.dart';
 import '../services/supabase_service.dart';
+import '../services/sync/supabase_backend.dart';
+import '../services/sync/sync_engine.dart';
+import '../services/sync/sync_queue.dart';
 import '../l10n/app_localizations.dart';
 
 class AppProvider extends ChangeNotifier {
   final StorageService _storage = StorageService();
-  final SyncService _sync = SyncService.instance;
+  late final SyncEngine _sync;
   final SupabaseService _supabase = SupabaseService.instance;
 
   // State
@@ -40,7 +45,11 @@ class AppProvider extends ChangeNotifier {
   bool get isSupabaseConfigured => _supabase.isConfigured;
   bool get isEmailConfirmed => _supabase.isEmailConfirmed;
   String? get currentUserEmail => _supabase.client?.auth.currentUser?.email;
-  int get pendingSyncCount => _sync.pendingSyncCount;
+  int get pendingSyncCount => _isLoading ? 0 : _sync.pendingSyncCount;
+  DateTime? get lastSyncedAt => _isLoading ? null : _sync.lastSyncedAt;
+  String? get syncError => _isLoading
+      ? null
+      : _settingsSyncError ?? _sync.lastError ?? _sync.firstQueueError;
 
   List<Shipment> get activeShipments => _shipments
       .where(
@@ -57,8 +66,14 @@ class AppProvider extends ChangeNotifier {
 
   Future<void> init() async {
     await _storage.init();
+    final queueBox = await Hive.openBox('sync_queue');
+    _sync = SyncEngine(
+      _storage,
+      SupabaseBackend(() => _supabase.client),
+      SyncQueue(() => queueBox),
+    );
     await _sync.init();
-    
+
     // Set up sync callbacks
     _sync.onSyncStarted = () {
       _isSyncing = true;
@@ -244,6 +259,34 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Settings sync is direct (not queued): last write wins is correct for
+  /// profile fields, and failures surface through _settingsSyncError.
+  String? _settingsSyncError;
+
+  Future<void> _syncSettings({
+    String? businessName,
+    String? currency,
+    String? language,
+    AirPricingConfig? airPricing,
+    SeaPricingConfig? seaPricing,
+  }) async {
+    if (!_supabase.isAuthenticated) return;
+    final data = <String, dynamic>{};
+    if (businessName != null) data['business_name'] = businessName;
+    if (currency != null) data['currency'] = currency;
+    if (language != null) data['language'] = language;
+    if (airPricing != null) data['air_pricing'] = airPricing.toJson();
+    if (seaPricing != null) data['sea_pricing'] = seaPricing.toJson();
+    if (data.isEmpty) return;
+    try {
+      await _supabase.updateOperatorProfile(data);
+      _settingsSyncError = null;
+    } catch (e) {
+      _settingsSyncError = e.toString();
+      notifyListeners();
+    }
+  }
+
   // ==================== CUSTOMERS ====================
 
   Future<void> addCustomer(Customer customer) async {
@@ -394,35 +437,35 @@ class AppProvider extends ChangeNotifier {
   Future<void> setLanguage(String lang) async {
     await _storage.setLanguage(lang);
     _l10n = AppLocalizations(languageCode: lang);
-    _sync.syncSettings(language: lang);
+    unawaited(_syncSettings(language: lang));
     notifyListeners();
   }
 
   Future<void> setOperatorName(String name) async {
     await _storage.setOperatorName(name);
     _operatorName = name;
-    _sync.syncSettings(businessName: name);
+    unawaited(_syncSettings(businessName: name));
     notifyListeners();
   }
 
   Future<void> setCurrency(String cur) async {
     await _storage.setCurrency(cur);
     _currency = cur;
-    _sync.syncSettings(currency: cur);
+    unawaited(_syncSettings(currency: cur));
     notifyListeners();
   }
 
   Future<void> updateAirPricing(AirPricingConfig config) async {
     await _storage.setAirPricing(config);
     _airPricing = config;
-    _sync.syncSettings(airPricing: config);
+    unawaited(_syncSettings(airPricing: config));
     notifyListeners();
   }
 
   Future<void> updateSeaPricing(SeaPricingConfig config) async {
     await _storage.setSeaPricing(config);
     _seaPricing = config;
-    _sync.syncSettings(seaPricing: config);
+    unawaited(_syncSettings(seaPricing: config));
     notifyListeners();
   }
 
