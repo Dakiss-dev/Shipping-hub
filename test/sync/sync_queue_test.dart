@@ -1,0 +1,59 @@
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hive/hive.dart';
+import 'package:shipping_hub/services/sync/sync_queue.dart';
+
+void main() {
+  late Directory tempDir;
+  late Box box;
+  late SyncQueue queue;
+
+  setUp(() async {
+    tempDir = await Directory.systemTemp.createTemp('sync_queue_test');
+    Hive.init(tempDir.path);
+    box = await Hive.openBox('sync_queue');
+    queue = SyncQueue(() => box);
+  });
+
+  tearDown(() async {
+    await Hive.deleteFromDisk();
+    await Hive.close();
+  });
+
+  test('enqueue appends entries in FIFO order', () async {
+    await queue.enqueue(table: 'customers', recordId: 'c1', data: {'v': 1});
+    await queue.enqueue(table: 'packages', recordId: 'p1', data: {'v': 1});
+    final entries = queue.entries();
+    expect(entries.map((e) => e.recordId).toList(), ['c1', 'p1']);
+  });
+
+  test('re-enqueueing a record coalesces in place, keeping its position', () async {
+    await queue.enqueue(table: 'customers', recordId: 'c1', data: {'v': 1});
+    await queue.enqueue(table: 'packages', recordId: 'p1', data: {'v': 1});
+    await queue.enqueue(table: 'customers', recordId: 'c1', data: {'v': 2});
+    final entries = queue.entries();
+    expect(entries.length, 2);
+    expect(entries.first.recordId, 'c1'); // still first — order preserved
+    expect(entries.first.data['v'], 2); // but carries the latest data
+  });
+
+  test('remove deletes an entry; recordFailure tracks attempts and error', () async {
+    await queue.enqueue(table: 'customers', recordId: 'c1', data: {});
+    final entry = queue.entries().single;
+    await queue.recordFailure(entry.key, 'network down');
+    final failed = queue.entries().single;
+    expect(failed.attempts, 1);
+    expect(failed.lastError, 'network down');
+    expect(queue.firstError, 'network down');
+    await queue.remove(failed.key);
+    expect(queue.isEmpty, isTrue);
+  });
+
+  test('pendingRecordIds returns queued ids for one table only', () async {
+    await queue.enqueue(table: 'customers', recordId: 'c1', data: {});
+    await queue.enqueue(table: 'packages', recordId: 'p1', data: {});
+    expect(queue.pendingRecordIds('customers'), {'c1'});
+    expect(queue.pendingRecordIds('shipments'), isEmpty);
+  });
+}
