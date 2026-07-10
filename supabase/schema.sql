@@ -1,13 +1,16 @@
 -- ============================================================
--- SHIPPING HUB - Supabase Multi-Tenant Schema
--- Run this in your Supabase SQL Editor (Dashboard > SQL Editor)
+-- SHIPPING HUB - Supabase Multi-Tenant Schema v2
+-- Fresh project: run whole file in SQL Editor (or apply_migration).
+-- Upgrading from v1: this file is idempotent-ish via IF NOT EXISTS,
+-- and the DROP VIEW below removes v1's insecure tracking view.
 -- ============================================================
 
--- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+-- v1 cleanup: this view bypassed RLS and exposed every tenant's data to anon.
+DROP VIEW IF EXISTS public_package_tracking;
+
 -- ==================== OPERATORS (profiles) ====================
--- Extends Supabase Auth users with operator-specific data
 CREATE TABLE IF NOT EXISTS operators (
   id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
   email TEXT NOT NULL,
@@ -15,7 +18,6 @@ CREATE TABLE IF NOT EXISTS operators (
   phone TEXT,
   currency TEXT NOT NULL DEFAULT 'USD',
   language TEXT NOT NULL DEFAULT 'en',
-  -- Air pricing config (JSON)
   air_pricing JSONB NOT NULL DEFAULT '{
     "pricePerKg": 8.0,
     "presetItems": {
@@ -28,7 +30,6 @@ CREATE TABLE IF NOT EXISTS operators (
       "Clothing Bundle": 20.0
     }
   }'::jsonb,
-  -- Sea pricing config (JSON)
   sea_pricing JSONB NOT NULL DEFAULT '{
     "pricePerKg": 3.0,
     "itemPrices": {
@@ -55,8 +56,8 @@ CREATE TABLE IF NOT EXISTS customers (
   email TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  -- Sync tracking
-  local_id TEXT, -- Original Hive local ID for migration
+  deleted_at TIMESTAMPTZ,
+  local_id TEXT,
   synced_at TIMESTAMPTZ
 );
 
@@ -73,6 +74,7 @@ CREATE TABLE IF NOT EXISTS shipments (
   notes TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ,
   local_id TEXT,
   synced_at TIMESTAMPTZ
 );
@@ -84,6 +86,10 @@ CREATE TABLE IF NOT EXISTS packages (
   customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
   shipment_id UUID NOT NULL REFERENCES shipments(id) ON DELETE CASCADE,
   reference_number TEXT NOT NULL,
+  -- Unguessable capability for the Plan 4 public tracking page. Never
+  -- exposed through an anon-readable view; lookups go through a
+  -- rate-limited Edge Function.
+  tracking_token UUID NOT NULL DEFAULT uuid_generate_v4() UNIQUE,
   shipment_type TEXT NOT NULL CHECK (shipment_type IN ('air', 'sea')),
   photo_url TEXT,
   description TEXT DEFAULT '',
@@ -93,14 +99,43 @@ CREATE TABLE IF NOT EXISTS packages (
   price DOUBLE PRECISION NOT NULL DEFAULT 0.0,
   payment_status TEXT NOT NULL DEFAULT 'unpaid' CHECK (payment_status IN ('unpaid', 'paid')),
   notes TEXT,
-  -- Receiver info
   receiver_name TEXT,
   receiver_phone TEXT,
   receiver_phone_country_code TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  deleted_at TIMESTAMPTZ,
   local_id TEXT,
-  synced_at TIMESTAMPTZ
+  synced_at TIMESTAMPTZ,
+  UNIQUE (operator_id, reference_number)
+);
+
+-- ==================== SUBSCRIPTIONS (entitlements) ====================
+-- Written ONLY by the service-role Stripe webhook (Plan 3). Clients can
+-- read their own row and nothing else — a client-writable plan column
+-- would be self-upgradable via raw PostgREST.
+CREATE TABLE IF NOT EXISTS subscriptions (
+  operator_id UUID PRIMARY KEY REFERENCES operators(id) ON DELETE CASCADE,
+  plan TEXT NOT NULL DEFAULT 'free' CHECK (plan IN ('free', 'pro')),
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'past_due', 'canceled')),
+  current_period_end TIMESTAMPTZ,
+  stripe_customer_id TEXT,
+  stripe_subscription_id TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ==================== DEVICES ====================
+-- Free plan: one registered device (transferable). Enforcement trigger
+-- ships with Plan 3; the table exists now so the schema is stable.
+CREATE TABLE IF NOT EXISTS devices (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  operator_id UUID NOT NULL REFERENCES operators(id) ON DELETE CASCADE,
+  device_id TEXT NOT NULL,
+  label TEXT,
+  last_seen_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (operator_id, device_id)
 );
 
 -- ==================== INDEXES ====================
@@ -113,13 +148,18 @@ CREATE INDEX IF NOT EXISTS idx_customers_phone ON customers(operator_id, phone);
 
 -- ==================== ROW LEVEL SECURITY ====================
 
--- Enable RLS on all tables
 ALTER TABLE operators ENABLE ROW LEVEL SECURITY;
 ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE shipments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE packages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE devices ENABLE ROW LEVEL SECURITY;
 
--- OPERATORS: Users can only see/edit their own profile
+-- Anon gets nothing, ever. RLS already denies (no anon policies), but
+-- revoking the default table grants removes the entire surface.
+REVOKE ALL ON operators, customers, shipments, packages, subscriptions, devices FROM anon;
+
+-- OPERATORS
 CREATE POLICY "operators_select_own" ON operators
   FOR SELECT USING (auth.uid() = id);
 
@@ -127,9 +167,15 @@ CREATE POLICY "operators_insert_own" ON operators
   FOR INSERT WITH CHECK (auth.uid() = id);
 
 CREATE POLICY "operators_update_own" ON operators
-  FOR UPDATE USING (auth.uid() = id);
+  FOR UPDATE USING (auth.uid() = id) WITH CHECK (auth.uid() = id);
 
--- CUSTOMERS: Operators can only see/edit their own customers
+-- Column-restrict operator updates: clients may edit profile fields only.
+-- (id/email stay immutable from the client; entitlements never live here.)
+REVOKE UPDATE ON operators FROM authenticated;
+GRANT UPDATE (business_name, phone, currency, language, air_pricing, sea_pricing)
+  ON operators TO authenticated;
+
+-- CUSTOMERS
 CREATE POLICY "customers_select_own" ON customers
   FOR SELECT USING (auth.uid() = operator_id);
 
@@ -137,12 +183,12 @@ CREATE POLICY "customers_insert_own" ON customers
   FOR INSERT WITH CHECK (auth.uid() = operator_id);
 
 CREATE POLICY "customers_update_own" ON customers
-  FOR UPDATE USING (auth.uid() = operator_id);
+  FOR UPDATE USING (auth.uid() = operator_id) WITH CHECK (auth.uid() = operator_id);
 
 CREATE POLICY "customers_delete_own" ON customers
   FOR DELETE USING (auth.uid() = operator_id);
 
--- SHIPMENTS: Operators can only see/edit their own shipments
+-- SHIPMENTS
 CREATE POLICY "shipments_select_own" ON shipments
   FOR SELECT USING (auth.uid() = operator_id);
 
@@ -150,12 +196,12 @@ CREATE POLICY "shipments_insert_own" ON shipments
   FOR INSERT WITH CHECK (auth.uid() = operator_id);
 
 CREATE POLICY "shipments_update_own" ON shipments
-  FOR UPDATE USING (auth.uid() = operator_id);
+  FOR UPDATE USING (auth.uid() = operator_id) WITH CHECK (auth.uid() = operator_id);
 
 CREATE POLICY "shipments_delete_own" ON shipments
   FOR DELETE USING (auth.uid() = operator_id);
 
--- PACKAGES: Operators can only see/edit their own packages
+-- PACKAGES
 CREATE POLICY "packages_select_own" ON packages
   FOR SELECT USING (auth.uid() = operator_id);
 
@@ -163,14 +209,32 @@ CREATE POLICY "packages_insert_own" ON packages
   FOR INSERT WITH CHECK (auth.uid() = operator_id);
 
 CREATE POLICY "packages_update_own" ON packages
-  FOR UPDATE USING (auth.uid() = operator_id);
+  FOR UPDATE USING (auth.uid() = operator_id) WITH CHECK (auth.uid() = operator_id);
 
 CREATE POLICY "packages_delete_own" ON packages
   FOR DELETE USING (auth.uid() = operator_id);
 
+-- SUBSCRIPTIONS: read-only for the owner; ALL writes via service role.
+CREATE POLICY "subscriptions_select_own" ON subscriptions
+  FOR SELECT USING (auth.uid() = operator_id);
+
+REVOKE INSERT, UPDATE, DELETE ON subscriptions FROM authenticated;
+
+-- DEVICES: owner manages their own device registrations.
+CREATE POLICY "devices_select_own" ON devices
+  FOR SELECT USING (auth.uid() = operator_id);
+
+CREATE POLICY "devices_insert_own" ON devices
+  FOR INSERT WITH CHECK (auth.uid() = operator_id);
+
+CREATE POLICY "devices_update_own" ON devices
+  FOR UPDATE USING (auth.uid() = operator_id) WITH CHECK (auth.uid() = operator_id);
+
+CREATE POLICY "devices_delete_own" ON devices
+  FOR DELETE USING (auth.uid() = operator_id);
+
 -- ==================== TRIGGERS ====================
 
--- Auto-update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -195,46 +259,10 @@ CREATE TRIGGER update_packages_updated_at
   BEFORE UPDATE ON packages
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
--- ==================== AUTO-CREATE OPERATOR PROFILE ====================
--- NOTE: Supabase hosted projects block triggers on auth.users (disabled + locked).
--- The Flutter app creates operator profiles app-side via _ensureOperatorProfile().
--- This no-op function is kept so the disabled trigger doesn't crash signups.
-CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  -- No-op: operator profile creation is handled by the Flutter app
-  -- after signup/signin to avoid Supabase auth.users trigger restrictions.
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+CREATE TRIGGER update_subscriptions_updated_at
+  BEFORE UPDATE ON subscriptions
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
--- DO NOT create trigger on auth.users — Supabase disables it and it can
--- cause "Database error saving new user" (500) during signup.
--- DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
--- CREATE TRIGGER on_auth_user_created
---   AFTER INSERT ON auth.users
---   FOR EACH ROW EXECUTE FUNCTION handle_new_user();
-
--- ==================== PUBLIC TRACKING VIEW ====================
--- Allows customers to look up package status by reference number
--- No auth required - this is the customer-facing tracking
-CREATE OR REPLACE VIEW public_package_tracking AS
-SELECT
-  p.reference_number,
-  p.shipment_type,
-  p.description,
-  p.weight_kg,
-  p.payment_status,
-  p.receiver_name,
-  p.created_at AS package_date,
-  s.destination,
-  s.status AS shipment_status,
-  s.departure_date,
-  s.estimated_arrival,
-  o.business_name AS operator_name
-FROM packages p
-JOIN shipments s ON p.shipment_id = s.id
-JOIN operators o ON p.operator_id = o.id;
-
--- Grant public read access to tracking view
-GRANT SELECT ON public_package_tracking TO anon;
+-- NOTE: no trigger on auth.users — Supabase hosted projects block them.
+-- Operator profiles are created app-side (_ensureOperatorProfile), and a
+-- default subscriptions row is created by the Plan 3 entitlement flow.
