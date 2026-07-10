@@ -15,8 +15,7 @@ void main() {
 
     final restored = customerFromRow(row);
     expect(restored.phoneCountryCode, '+226');
-    // fromRow yields UTC DateTimes; compare instants in the same zone.
-    expect(restored.updatedAt, customer.updatedAt.toUtc());
+    expect(restored.updatedAt, customer.updatedAt);
   });
 
   test('deleted_at round-trips as a tombstone', () {
@@ -24,7 +23,7 @@ void main() {
       ..deletedAt = DateTime(2026, 7, 10);
     final row = customerToRow(customer, 'op-1');
     expect(row['deleted_at'], isNotNull);
-    expect(customerFromRow(row).deletedAt, DateTime(2026, 7, 10).toUtc());
+    expect(customerFromRow(row).deletedAt, DateTime(2026, 7, 10));
   });
 
   test('package receiver fields and metadata round-trip', () {
@@ -41,7 +40,7 @@ void main() {
     final restored = packageFromRow(row);
     expect(restored.receiverPhoneCountryCode, '+223');
     expect(restored.referenceNumber, pkg.referenceNumber);
-    expect(restored.updatedAt, pkg.updatedAt.toUtc());
+    expect(restored.updatedAt, pkg.updatedAt);
     expect(restored.deletedAt, isNull);
   });
 
@@ -55,7 +54,7 @@ void main() {
     );
     final restored = shipmentFromRow(shipmentToRow(shipment, 'op-1'));
     expect(restored.status, ShipmentStatus.inTransit);
-    expect(restored.departureDate, DateTime(2026, 7, 1).toUtc());
+    expect(restored.departureDate, DateTime(2026, 7, 1));
   });
 
   test('toRow serializes instants in UTC with explicit Z suffix', () {
@@ -94,8 +93,8 @@ void main() {
     expect(restored.weightKg, 5.0);
     expect(restored.price, 80.0);
     expect(restored.seaItemType, SeaItemType.smallBarrel);
-    expect(restored.updatedAt.isUtc, isTrue);
-    expect(restored.updatedAt, DateTime.utc(2026, 7, 10, 15, 30));
+    expect(restored.updatedAt.isUtc, isFalse);
+    expect(restored.updatedAt, DateTime.utc(2026, 7, 10, 15, 30).toLocal());
   });
 
   test('unknown enum strings currently throw StateError (documented gap)', () {

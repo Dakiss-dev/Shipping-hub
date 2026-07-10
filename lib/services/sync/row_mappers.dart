@@ -9,6 +9,9 @@ import '../../models/models.dart';
 /// All timestamps are serialized in UTC ('Z' suffix); Dart's
 /// toIso8601String() on a local DateTime carries no offset and Postgres
 /// would misread it as UTC.
+///
+/// Parsing converts back to local time: the app's display sites (receipts,
+/// detail screens) format zone-sensitive fields and expect local DateTimes.
 
 Map<String, dynamic> customerToRow(Customer c, String operatorId) => {
       'id': c.id,
@@ -29,10 +32,10 @@ Customer customerFromRow(Map<String, dynamic> row) => Customer(
       phone: row['phone'] as String,
       phoneCountryCode: row['phone_country_code'] as String? ?? '+1',
       email: row['email'] as String?,
-      createdAt: DateTime.parse(row['created_at'] as String),
-      updatedAt: DateTime.parse(row['updated_at'] as String),
+      createdAt: DateTime.parse(row['created_at'] as String).toLocal(),
+      updatedAt: DateTime.parse(row['updated_at'] as String).toLocal(),
       deletedAt: row['deleted_at'] != null
-          ? DateTime.parse(row['deleted_at'] as String)
+          ? DateTime.parse(row['deleted_at'] as String).toLocal()
           : null,
     );
 
@@ -59,17 +62,17 @@ Shipment shipmentFromRow(Map<String, dynamic> row) => Shipment(
       destination: row['destination'] as String,
       status:
           ShipmentStatus.values.firstWhere((e) => e.name == row['status']),
-      createdAt: DateTime.parse(row['created_at'] as String),
+      createdAt: DateTime.parse(row['created_at'] as String).toLocal(),
       departureDate: row['departure_date'] != null
-          ? DateTime.parse(row['departure_date'] as String)
+          ? DateTime.parse(row['departure_date'] as String).toLocal()
           : null,
       estimatedArrival: row['estimated_arrival'] != null
-          ? DateTime.parse(row['estimated_arrival'] as String)
+          ? DateTime.parse(row['estimated_arrival'] as String).toLocal()
           : null,
       notes: row['notes'] as String?,
-      updatedAt: DateTime.parse(row['updated_at'] as String),
+      updatedAt: DateTime.parse(row['updated_at'] as String).toLocal(),
       deletedAt: row['deleted_at'] != null
-          ? DateTime.parse(row['deleted_at'] as String)
+          ? DateTime.parse(row['deleted_at'] as String).toLocal()
           : null,
     );
 
@@ -115,14 +118,14 @@ ShippingPackage packageFromRow(Map<String, dynamic> row) => ShippingPackage(
       price: (row['price'] as num).toDouble(),
       paymentStatus: PaymentStatus.values
           .firstWhere((e) => e.name == row['payment_status']),
-      createdAt: DateTime.parse(row['created_at'] as String),
+      createdAt: DateTime.parse(row['created_at'] as String).toLocal(),
       notes: row['notes'] as String?,
       receiverName: row['receiver_name'] as String?,
       receiverPhone: row['receiver_phone'] as String?,
       receiverPhoneCountryCode:
           row['receiver_phone_country_code'] as String?,
-      updatedAt: DateTime.parse(row['updated_at'] as String),
+      updatedAt: DateTime.parse(row['updated_at'] as String).toLocal(),
       deletedAt: row['deleted_at'] != null
-          ? DateTime.parse(row['deleted_at'] as String)
+          ? DateTime.parse(row['deleted_at'] as String).toLocal()
           : null,
     );
