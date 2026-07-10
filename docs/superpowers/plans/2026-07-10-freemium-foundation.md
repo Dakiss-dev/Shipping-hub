@@ -10,7 +10,7 @@
 
 **Working directory:** `/Users/alidakissaga/shipping-hub` on branch `feature/freemium-flagship`. Run every command from there.
 
-**Baseline (verified 2026-07-10):** `flutter analyze` reports 37 info-level issues and zero errors; `flutter test` passes (1 smoke test). Info-level cleanup belongs to Plan 5, so CI runs analyze with `--no-fatal-infos`.
+**Baseline (verified 2026-07-10, corrected during Task 1):** `flutter analyze` reports 36 info-level issues plus 1 warning (unused import in `business_setup_screen.dart`, removed in Task 1) and zero errors; `flutter test` passes (1 smoke test). Info-level cleanup belongs to Plan 5, so CI runs analyze with `--no-fatal-infos`; warnings stay fatal.
 
 **Spec:** `docs/superpowers/specs/2026-07-10-shipping-hub-freemium-design.md` (this plan covers the spec's Sections 1-2 plus CI from Section 7; Plans 2-5 cover the rest).
 
@@ -35,10 +35,12 @@ In `pubspec.yaml`, delete these four lines from `dependencies:`:
   path: ^1.9.1
 ```
 
-- [ ] **Step 2: Verify the app still resolves and passes**
+- [ ] **Step 2: Remove the warning-level unused import, then verify**
+
+Delete line 4 (`import '../models/models.dart';` — flagged as unused_import, warning level) from `lib/screens/business_setup_screen.dart`.
 
 Run: `flutter pub get && flutter analyze --no-fatal-infos && flutter test`
-Expected: pub get succeeds, analyze ends with `37 issues found.` but exit code 0 (infos only), test output ends with `All tests passed!`
+Expected: pub get succeeds, analyze ends with `36 issues found.` and exit code 0 (infos only — warnings are fatal, and the only warning is now gone), test output ends with `All tests passed!`
 
 - [ ] **Step 3: Create the CI workflow**
 
@@ -69,8 +71,8 @@ jobs:
 - [ ] **Step 4: Commit**
 
 ```bash
-git add .github/workflows/ci.yml pubspec.yaml pubspec.lock
-git commit -m "chore: add CI workflow, remove unused dependencies"
+git add .github/workflows/ci.yml pubspec.yaml pubspec.lock lib/screens/business_setup_screen.dart
+git commit -m "chore: add CI workflow, remove unused deps, drop unused import"
 ```
 
 ---
