@@ -1,16 +1,40 @@
-# shipping_hub
+# Shipping Hub
 
-A new Flutter project.
+> Package intake and shipment management for diaspora shipment operators.
 
-## Getting Started
+Diaspora shipping operators (the people who fill a container in Washington DC or Paris and get your packages to Ouagadougou or Bamako) mostly run on WhatsApp messages and paper notebooks. Shipping Hub is a Flutter app that gives an operator a real system: package intake, customer records, shipment batches, and status tracking, with cloud sync.
 
-This project is a starting point for a Flutter application.
+Built after shipping [SD Express](https://sd-express.pages.dev), a live site for exactly this kind of business. This is the operator-side tool of the same world.
 
-A few resources to get you started if this is your first Flutter project:
+## Features
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+- **Package intake:** log packages with sender, receiver, international phone numbers (proper country codes), and per-package detail screens
+- **Shipment batches:** group packages into shipments, track status through the shipping lifecycle
+- **Customer records:** repeat senders and receivers, one tap away
+- **WhatsApp sharing:** share package/shipment info with customers on the channel they actually use, with correct international number formatting
+- **Auth and onboarding:** email verification, Google Sign-In, guided business setup wizard, welcoming empty states
+- **Cloud sync:** Supabase backend (`supabase/schema.sql` included), offline-tolerant local storage with a sync service
+- **Installable PWA:** runs as a web app with a manifest and iOS meta tags, so operators install it from the browser, no app store needed
+- **Bilingual-ready:** l10n scaffolding in place (EN/FR world)
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Stack
+
+Flutter/Dart · Supabase (PostgreSQL, Auth) · PWA web target
+
+## Run it
+
+```bash
+flutter pub get
+
+# create a Supabase project, apply supabase/schema.sql, then:
+flutter run --dart-define=SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co \
+            --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY
+```
+
+## Status
+
+Working MVP, built in a 6-day sprint (Feb 2026). The original demo backend has been retired; bring your own Supabase project with the included schema. Part of a trilogy of diaspora-logistics systems I've shipped, alongside [SD Express](https://sd-express.pages.dev) (customer-facing site, live) and a 4-role water-delivery ops app run daily across two continents.
+
+## License
+
+MIT.
