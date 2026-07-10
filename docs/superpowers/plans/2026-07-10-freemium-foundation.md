@@ -677,6 +677,10 @@ import '../../models/models.dart';
 /// The pushed updated_at is advisory: the DB trigger overwrites it with
 /// NOW() on conflicting upserts. That is safe — the merge protects unflushed
 /// local edits via the pending-queue check, not clock comparison.
+///
+/// All timestamps are serialized in UTC ('Z' suffix): Dart's
+/// toIso8601String() on a local DateTime carries no offset, and Postgres
+/// timestamptz would misread it as UTC, corrupting the instant.
 
 Map<String, dynamic> customerToRow(Customer c, String operatorId) => {
       'id': c.id,
@@ -685,10 +689,10 @@ Map<String, dynamic> customerToRow(Customer c, String operatorId) => {
       'phone': c.phone,
       'phone_country_code': c.phoneCountryCode,
       'email': c.email,
-      'created_at': c.createdAt.toIso8601String(),
-      'updated_at': c.updatedAt.toIso8601String(),
-      'deleted_at': c.deletedAt?.toIso8601String(),
-      'synced_at': DateTime.now().toIso8601String(),
+      'created_at': c.createdAt.toUtc().toIso8601String(),
+      'updated_at': c.updatedAt.toUtc().toIso8601String(),
+      'deleted_at': c.deletedAt?.toUtc().toIso8601String(),
+      'synced_at': DateTime.now().toUtc().toIso8601String(),
     };
 
 Customer customerFromRow(Map<String, dynamic> row) => Customer(
@@ -711,13 +715,13 @@ Map<String, dynamic> shipmentToRow(Shipment s, String operatorId) => {
       'type': s.type.name,
       'destination': s.destination,
       'status': s.status.name,
-      'departure_date': s.departureDate?.toIso8601String(),
-      'estimated_arrival': s.estimatedArrival?.toIso8601String(),
+      'departure_date': s.departureDate?.toUtc().toIso8601String(),
+      'estimated_arrival': s.estimatedArrival?.toUtc().toIso8601String(),
       'notes': s.notes,
-      'created_at': s.createdAt.toIso8601String(),
-      'updated_at': s.updatedAt.toIso8601String(),
-      'deleted_at': s.deletedAt?.toIso8601String(),
-      'synced_at': DateTime.now().toIso8601String(),
+      'created_at': s.createdAt.toUtc().toIso8601String(),
+      'updated_at': s.updatedAt.toUtc().toIso8601String(),
+      'deleted_at': s.deletedAt?.toUtc().toIso8601String(),
+      'synced_at': DateTime.now().toUtc().toIso8601String(),
     };
 
 Shipment shipmentFromRow(Map<String, dynamic> row) => Shipment(
@@ -759,10 +763,10 @@ Map<String, dynamic> packageToRow(ShippingPackage p, String operatorId) => {
       'receiver_name': p.receiverName,
       'receiver_phone': p.receiverPhone,
       'receiver_phone_country_code': p.receiverPhoneCountryCode,
-      'created_at': p.createdAt.toIso8601String(),
-      'updated_at': p.updatedAt.toIso8601String(),
-      'deleted_at': p.deletedAt?.toIso8601String(),
-      'synced_at': DateTime.now().toIso8601String(),
+      'created_at': p.createdAt.toUtc().toIso8601String(),
+      'updated_at': p.updatedAt.toUtc().toIso8601String(),
+      'deleted_at': p.deletedAt?.toUtc().toIso8601String(),
+      'synced_at': DateTime.now().toUtc().toIso8601String(),
     };
 
 ShippingPackage packageFromRow(Map<String, dynamic> row) => ShippingPackage(
@@ -1484,6 +1488,7 @@ Wire the contract to Supabase. CRUD moves out of `SupabaseService` into `Supabas
 Create `lib/services/sync/supabase_backend.dart`:
 
 ```dart
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/models.dart';
@@ -1553,22 +1558,34 @@ class SupabaseBackend implements SyncBackend {
         _client!.from('packages').select().eq('operator_id', uid),
       ]);
       return CloudSnapshot(
-        customers: [
-          for (final r in results[0])
-            customerFromRow(Map<String, dynamic>.from(r as Map)),
-        ],
-        shipments: [
-          for (final r in results[1])
-            shipmentFromRow(Map<String, dynamic>.from(r as Map)),
-        ],
-        packages: [
-          for (final r in results[2])
-            packageFromRow(Map<String, dynamic>.from(r as Map)),
-        ],
+        customers: _mapRows(results[0], customerFromRow, 'customers'),
+        shipments: _mapRows(results[1], shipmentFromRow, 'shipments'),
+        packages: _mapRows(results[2], packageFromRow, 'packages'),
       );
     } catch (e) {
       throw SyncBackendException('pull_all', '-', e);
     }
+  }
+
+  /// Version-skew guard: one malformed row (e.g. an enum value written by a
+  /// newer app build) must not crash the whole pull. Bad rows are skipped
+  /// and logged; everything else still syncs.
+  List<T> _mapRows<T>(
+    dynamic rows,
+    T Function(Map<String, dynamic>) fromRow,
+    String table,
+  ) {
+    final mapped = <T>[];
+    for (final r in rows as List) {
+      try {
+        mapped.add(fromRow(Map<String, dynamic>.from(r as Map)));
+      } catch (e) {
+        if (kDebugMode) {
+          debugPrint('[Sync] Skipping unparseable $table row: $e');
+        }
+      }
+    }
+    return mapped;
   }
 }
 ```
@@ -2625,3 +2642,12 @@ Confirm CI goes green on GitHub for the pushed branch.
 - **Spec coverage (this plan's slice):** Section 1 backend items (subscriptions, devices, tracking_token, tombstone columns, hardened operators policy, view drop, ref uniqueness) → Tasks 11-12. Section 2 sync items (no swallowed exceptions, flush-before-pull, timestamp merge, tombstone propagation, namespaced Hive, visible sync status, connectivity-based isOnline, country-code fix) → Tasks 2-10. Section 7 CI → Task 1. Storage bucket + Edge Functions intentionally deferred (Plan 3/4 per decomposition). Dashboard sync indicator deferred to Plan 4's pull-to-refresh fix (spec groups it there).
 - **Known deviations, agreed during design:** local→account data migration UX deferred to Plan 2; email confirmation temporarily disabled until Plan 2's deep links; per-record retry backoff is flush-round-based, not timer-based.
 - **Type consistency verified:** `SyncEngine(storage, backend, queue)`, `SyncQueue(Box Function())`, `StorageService.initForTest({namespace})`, `syncQueueBox`, `freshReference()`, `firstQueueError` used consistently across tasks.
+
+## Review-driven amendments during execution
+
+Logged as each task's two-stage review lands; the code blocks above have been updated in place.
+
+- **Task 1:** baseline corrected (36 infos + 1 warning, not 37 infos); warning-level unused import removed in `business_setup_screen.dart`; CI hardened with pinned `flutter-version: '3.44.0'`, concurrency cancellation, `permissions: contents: read`, `timeout-minutes: 10`.
+- **Task 2:** backfilled `test/storage_service_test.dart` (tombstone filtering, singular getters, getPackage); debugPrint on collision-guard exhaustion; `_savePackage` in `new_package_screen.dart` made async so the receipt SnackBar reads the post-guard reference number. Residual: collision-guard regeneration test lands with Task 9 when the provider becomes testable.
+- **Task 3:** entry `version` field + `removeIfVersion(key, expectedVersion)` close a coalesce-during-flush data-loss race; Task 5's flush loop uses the guard and gates tombstone hard-deletes on successful removal; attempts/lastError reset on coalesce documented and tested.
+- **Task 4:** all row timestamps serialized via `.toUtc()` (offset-less local ISO strings would be misread as UTC by timestamptz, corrupting instants); wire-shaped PostgREST payload test; unknown-enum StateError documented by test. Per-row crash isolation added to Task 7's `pullAll` (`_mapRows` skips unparseable rows).
