@@ -224,6 +224,7 @@ class AppProvider extends ChangeNotifier {
       // back to the local namespace so the next account starts clean.
       await _quiesceSync();
       _sync.lastError = null;
+      _settingsSyncError = null;
       await _storage.switchNamespace('local');
       _loadAll();
       notifyListeners();
@@ -284,6 +285,16 @@ class AppProvider extends ChangeNotifier {
     if (!_supabase.isAuthenticated) return;
     // The engine's onSyncStarted/Completed callbacks drive _isSyncing.
     await _sync.fullSync();
+    // Re-push profile settings (idempotent, last-write-wins) so a prior
+    // settings-sync failure is retried and its error cleared by the same
+    // "Sync issue" Retry the user tapped.
+    await _syncSettings(
+      businessName: _operatorName,
+      currency: _currency,
+      language: _l10n.languageCode,
+      airPricing: _airPricing,
+      seaPricing: _seaPricing,
+    );
     _loadAll();
     notifyListeners();
   }

@@ -318,6 +318,29 @@ void main() {
       expect(backend.callLog, contains('pullAll'));
     });
 
+    test('a namespace switch during the pull aborts the merge (no leak)',
+        () async {
+      backend.authenticated = true;
+      backend.nextSnapshot =
+          CloudSnapshot(customers: [makeCustomer(id: 'c1', name: 'Account A')]);
+      backend.pullGate = Completer<void>();
+
+      final syncFuture = engine.fullSync();
+      await Future<void>.delayed(Duration.zero); // parks on the gated pull
+
+      // Sign-out racing a slow pull: switch to a different namespace while the
+      // merge is still pending. The pulled record must NOT land anywhere.
+      await storage.switchNamespace('other');
+
+      backend.pullGate!.complete();
+      backend.pullGate = null;
+      await syncFuture;
+
+      expect(storage.getCustomer('c1'), isNull); // not in 'other'
+      expect(Hive.box('other_customers').get('c1'), isNull);
+      expect(Hive.box('local_customers').get('c1'), isNull); // not in 'local'
+    });
+
     test('a write during the pull is flushed right after the sync', () async {
       backend.authenticated = true;
       backend.pullGate = Completer<void>();

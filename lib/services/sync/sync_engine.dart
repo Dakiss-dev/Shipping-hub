@@ -222,8 +222,13 @@ class SyncEngine {
         onSyncError?.call(lastError!);
       }
 
+      // Bind this sync to the namespace it started in. If a sign-out/sign-in
+      // switches namespaces while pullAll is in flight (e.g. _quiesceSync
+      // timed out on a slow network), the merge must NOT write another
+      // account's records into the now-active namespace.
+      final boundNamespace = _storage.namespace;
       final snapshot = await _backend.pullAll();
-      await _mergeSnapshot(snapshot);
+      await _mergeSnapshot(snapshot, boundNamespace);
 
       if (!flushErrored) lastError = null;
       lastSyncedAt = DateTime.now();
@@ -240,9 +245,17 @@ class SyncEngine {
     }
   }
 
-  Future<void> _mergeSnapshot(CloudSnapshot snapshot) async {
+  Future<void> _mergeSnapshot(
+    CloudSnapshot snapshot,
+    String boundNamespace,
+  ) async {
+    // The merge runs many awaits; a namespace switch can interleave, so the
+    // guard is re-checked per record, not just once up front.
+    bool stillBound() => _storage.namespace == boundNamespace;
+
     final pendingCustomers = _queue.pendingRecordIds('customers');
     for (final cloud in snapshot.customers) {
+      if (!stillBound()) return;
       if (pendingCustomers.contains(cloud.id)) continue;
       if (cloud.deletedAt != null) {
         await _storage.deleteCustomer(cloud.id);
@@ -256,6 +269,7 @@ class SyncEngine {
 
     final pendingShipments = _queue.pendingRecordIds('shipments');
     for (final cloud in snapshot.shipments) {
+      if (!stillBound()) return;
       if (pendingShipments.contains(cloud.id)) continue;
       if (cloud.deletedAt != null) {
         await _storage.deleteShipment(cloud.id);
@@ -269,6 +283,7 @@ class SyncEngine {
 
     final pendingPackages = _queue.pendingRecordIds('packages');
     for (final cloud in snapshot.packages) {
+      if (!stillBound()) return;
       if (pendingPackages.contains(cloud.id)) continue;
       if (cloud.deletedAt != null) {
         await _storage.deletePackage(cloud.id);
