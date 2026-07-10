@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 import '../models/models.dart';
 import '../services/storage_service.dart';
 import '../services/supabase_service.dart';
@@ -66,11 +65,10 @@ class AppProvider extends ChangeNotifier {
 
   Future<void> init() async {
     await _storage.init();
-    final queueBox = await Hive.openBox('sync_queue');
     _sync = SyncEngine(
       _storage,
       SupabaseBackend(() => _supabase.client),
-      SyncQueue(() => queueBox),
+      SyncQueue(() => _storage.syncQueueBox),
     );
     await _sync.init();
 

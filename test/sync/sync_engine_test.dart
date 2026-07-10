@@ -21,10 +21,9 @@ void main() {
     tempDir = await Directory.systemTemp.createTemp('sync_engine_test');
     Hive.init(tempDir.path);
     storage = StorageService();
-    await storage.initForTest();
-    final queueBox = await Hive.openBox('sync_queue');
+    await storage.initForTest(namespace: 'local');
     backend = FakeBackend();
-    queue = SyncQueue(() => queueBox);
+    queue = SyncQueue(() => storage.syncQueueBox);
     // NOTE: engine.init() is never called in tests — it subscribes to
     // connectivity_plus, which has no platform implementation here.
     engine = SyncEngine(storage, backend, queue);
@@ -125,7 +124,7 @@ void main() {
       // Cloud got the tombstone; local copy is now hard-deleted.
       expect(backend.customers['c1']!.deletedAt, isNotNull);
       expect(engine.pendingSyncCount, 0);
-      expect(Hive.box('customers').get('c1'), isNull);
+      expect(Hive.box('local_customers').get('c1'), isNull);
     });
 
     test('deleteShipment tombstones its packages first', () async {
@@ -194,7 +193,8 @@ void main() {
 
       expect(engine.pendingSyncCount, 1); // tombstone still queued
       expect(storage.getCustomers(), isEmpty); // still hidden
-      expect(Hive.box('customers').get('c1'), isNotNull); // NOT hard-deleted
+      expect(
+          Hive.box('local_customers').get('c1'), isNotNull); // NOT hard-deleted
       expect(engine.lastError, contains('down'));
     });
 
@@ -301,7 +301,7 @@ void main() {
 
       await engine.fullSync();
       expect(storage.getCustomer('c1'), isNull);
-      expect(Hive.box('customers').get('c1'), isNull);
+      expect(Hive.box('local_customers').get('c1'), isNull);
     });
 
     test('flush failure during fullSync still pulls (error recorded)',
