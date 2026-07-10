@@ -5,6 +5,10 @@ import '../../models/models.dart';
 /// The pushed updated_at is advisory: the DB trigger overwrites it with
 /// NOW() on conflicting upserts. That is safe — the merge protects unflushed
 /// local edits via the pending-queue check, not clock comparison.
+///
+/// All timestamps are serialized in UTC ('Z' suffix); Dart's
+/// toIso8601String() on a local DateTime carries no offset and Postgres
+/// would misread it as UTC.
 
 Map<String, dynamic> customerToRow(Customer c, String operatorId) => {
       'id': c.id,
@@ -13,10 +17,10 @@ Map<String, dynamic> customerToRow(Customer c, String operatorId) => {
       'phone': c.phone,
       'phone_country_code': c.phoneCountryCode,
       'email': c.email,
-      'created_at': c.createdAt.toIso8601String(),
-      'updated_at': c.updatedAt.toIso8601String(),
-      'deleted_at': c.deletedAt?.toIso8601String(),
-      'synced_at': DateTime.now().toIso8601String(),
+      'created_at': c.createdAt.toUtc().toIso8601String(),
+      'updated_at': c.updatedAt.toUtc().toIso8601String(),
+      'deleted_at': c.deletedAt?.toUtc().toIso8601String(),
+      'synced_at': DateTime.now().toUtc().toIso8601String(),
     };
 
 Customer customerFromRow(Map<String, dynamic> row) => Customer(
@@ -39,13 +43,13 @@ Map<String, dynamic> shipmentToRow(Shipment s, String operatorId) => {
       'type': s.type.name,
       'destination': s.destination,
       'status': s.status.name,
-      'departure_date': s.departureDate?.toIso8601String(),
-      'estimated_arrival': s.estimatedArrival?.toIso8601String(),
+      'departure_date': s.departureDate?.toUtc().toIso8601String(),
+      'estimated_arrival': s.estimatedArrival?.toUtc().toIso8601String(),
       'notes': s.notes,
-      'created_at': s.createdAt.toIso8601String(),
-      'updated_at': s.updatedAt.toIso8601String(),
-      'deleted_at': s.deletedAt?.toIso8601String(),
-      'synced_at': DateTime.now().toIso8601String(),
+      'created_at': s.createdAt.toUtc().toIso8601String(),
+      'updated_at': s.updatedAt.toUtc().toIso8601String(),
+      'deleted_at': s.deletedAt?.toUtc().toIso8601String(),
+      'synced_at': DateTime.now().toUtc().toIso8601String(),
     };
 
 Shipment shipmentFromRow(Map<String, dynamic> row) => Shipment(
@@ -87,10 +91,10 @@ Map<String, dynamic> packageToRow(ShippingPackage p, String operatorId) => {
       'receiver_name': p.receiverName,
       'receiver_phone': p.receiverPhone,
       'receiver_phone_country_code': p.receiverPhoneCountryCode,
-      'created_at': p.createdAt.toIso8601String(),
-      'updated_at': p.updatedAt.toIso8601String(),
-      'deleted_at': p.deletedAt?.toIso8601String(),
-      'synced_at': DateTime.now().toIso8601String(),
+      'created_at': p.createdAt.toUtc().toIso8601String(),
+      'updated_at': p.updatedAt.toUtc().toIso8601String(),
+      'deleted_at': p.deletedAt?.toUtc().toIso8601String(),
+      'synced_at': DateTime.now().toUtc().toIso8601String(),
     };
 
 ShippingPackage packageFromRow(Map<String, dynamic> row) => ShippingPackage(
