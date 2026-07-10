@@ -95,26 +95,38 @@ class SyncQueue {
 
   Future<void> remove(int key) => _box.delete(key);
 
-  /// Remove the entry at [key] only if its data hasn't been superseded by a
-  /// newer coalesced version since [expectedVersion] was snapshotted. Returns
-  /// true when removed. When false, the newer version stays queued for the
-  /// next flush round.
-  Future<bool> removeIfVersion(int key, int expectedVersion) async {
-    final raw = _box.get(key);
+  /// Remove the entry at [entry.key] only if the box still holds the SAME
+  /// record (table + recordId) at the SAME version as the snapshot. Guards
+  /// against both mid-push coalesced edits and stale snapshots surviving a
+  /// namespace switch, where integer keys restart in a fresh box. Returns
+  /// true when removed; when false, whatever lives at that key stays queued.
+  Future<bool> removeIfVersion(SyncQueueEntry entry) async {
+    final raw = _box.get(entry.key);
     if (raw == null) return false;
-    final currentVersion = (raw as Map)['version'] as int? ?? 1;
-    if (currentVersion != expectedVersion) return false;
-    await _box.delete(key);
+    final map = raw as Map;
+    if (map['table'] != entry.table || map['recordId'] != entry.recordId) {
+      return false;
+    }
+    if ((map['version'] as int? ?? 1) != entry.version) return false;
+    await _box.delete(entry.key);
     return true;
   }
 
-  /// Marks a failed push attempt. Does not bump [SyncQueueEntry.version] —
-  /// version tracks data changes only, not delivery attempts.
-  Future<void> recordFailure(int key, String message) async {
-    final raw = Map<String, dynamic>.from(_box.get(key) as Map);
-    raw['attempts'] = (raw['attempts'] as int? ?? 0) + 1;
-    raw['lastError'] = message;
-    await _box.put(key, raw);
+  /// Marks a failed push attempt, but only if the box still holds the same
+  /// record at the same version — a coalesced or foreign entry is left
+  /// alone. Does not bump [SyncQueueEntry.version]: version tracks data
+  /// changes only, not delivery attempts.
+  Future<void> recordFailure(SyncQueueEntry entry, String message) async {
+    final raw = _box.get(entry.key);
+    if (raw == null) return;
+    final map = Map<String, dynamic>.from(raw as Map);
+    if (map['table'] != entry.table || map['recordId'] != entry.recordId) {
+      return;
+    }
+    if ((map['version'] as int? ?? 1) != entry.version) return;
+    map['attempts'] = (map['attempts'] as int? ?? 0) + 1;
+    map['lastError'] = message;
+    await _box.put(entry.key, map);
   }
 
   /// The oldest recorded failure, for surfacing in the sync status UI.

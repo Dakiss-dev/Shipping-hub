@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:shipping_hub/models/models.dart';
 import 'package:shipping_hub/services/sync/sync_backend.dart';
 
@@ -5,6 +7,10 @@ import 'package:shipping_hub/services/sync/sync_backend.dart';
 class FakeBackend implements SyncBackend {
   bool authenticated = true;
   String? userId = 'op-1';
+
+  /// When set, upsertCustomer parks on this until the test completes it —
+  /// lets tests interleave writes with an in-flight push deterministically.
+  Completer<void>? upsertGate;
 
   final List<String> callLog = [];
   final Map<String, Customer> customers = {};
@@ -31,6 +37,7 @@ class FakeBackend implements SyncBackend {
   @override
   Future<void> upsertCustomer(Customer customer) async {
     callLog.add('upsertCustomer:${customer.id}');
+    if (upsertGate != null) await upsertGate!.future;
     if (failUpsertsWith != null) {
       throw SyncBackendException('customers', customer.id, failUpsertsWith!);
     }

@@ -24,6 +24,7 @@ class SyncEngine {
   final SyncQueue _queue;
 
   bool _isSyncing = false;
+  bool _flushRequestedWhileSyncing = false;
   bool _hasConnectivity = true;
   DateTime? lastSyncedAt;
   String? lastError;
@@ -41,6 +42,10 @@ class SyncEngine {
   String? get firstQueueError => _queue.firstError;
 
   Future<void> init() async {
+    // Seed the initial state: onConnectivityChanged does not reliably emit
+    // on subscribe, so an app launched offline would otherwise report online.
+    final initial = await Connectivity().checkConnectivity();
+    _hasConnectivity = initial.any((r) => r != ConnectivityResult.none);
     _connectivitySubscription =
         Connectivity().onConnectivityChanged.listen((results) {
       _hasConnectivity = results.any((r) => r != ConnectivityResult.none);
@@ -61,7 +66,7 @@ class SyncEngine {
     await _storage.saveCustomer(customer);
     await _queue.enqueue(
         table: 'customers', recordId: customer.id, data: customer.toJson());
-    if (_backend.isAuthenticated) unawaited(flush());
+    if (_backend.isAuthenticated && _hasConnectivity) unawaited(flush());
   }
 
   Future<void> saveShipment(Shipment shipment) async {
@@ -69,7 +74,7 @@ class SyncEngine {
     await _storage.saveShipment(shipment);
     await _queue.enqueue(
         table: 'shipments', recordId: shipment.id, data: shipment.toJson());
-    if (_backend.isAuthenticated) unawaited(flush());
+    if (_backend.isAuthenticated && _hasConnectivity) unawaited(flush());
   }
 
   Future<void> savePackage(ShippingPackage package) async {
@@ -77,7 +82,7 @@ class SyncEngine {
     await _storage.savePackage(package);
     await _queue.enqueue(
         table: 'packages', recordId: package.id, data: package.toJson());
-    if (_backend.isAuthenticated) unawaited(flush());
+    if (_backend.isAuthenticated && _hasConnectivity) unawaited(flush());
   }
 
   Future<void> deleteCustomer(String id) async {
@@ -87,7 +92,7 @@ class SyncEngine {
     await _storage.saveCustomer(customer);
     await _queue.enqueue(
         table: 'customers', recordId: id, data: customer.toJson());
-    if (_backend.isAuthenticated) unawaited(flush());
+    if (_backend.isAuthenticated && _hasConnectivity) unawaited(flush());
   }
 
   Future<void> deleteShipment(String id) async {
@@ -100,7 +105,7 @@ class SyncEngine {
     await _storage.saveShipment(shipment);
     await _queue.enqueue(
         table: 'shipments', recordId: id, data: shipment.toJson());
-    if (_backend.isAuthenticated) unawaited(flush());
+    if (_backend.isAuthenticated && _hasConnectivity) unawaited(flush());
   }
 
   Future<void> deletePackage(String id) async {
@@ -110,7 +115,7 @@ class SyncEngine {
     await _storage.savePackage(package);
     await _queue.enqueue(
         table: 'packages', recordId: id, data: package.toJson());
-    if (_backend.isAuthenticated) unawaited(flush());
+    if (_backend.isAuthenticated && _hasConnectivity) unawaited(flush());
   }
 
   void _tombstone(dynamic record) {
@@ -122,15 +127,27 @@ class SyncEngine {
   // ==================== FLUSH ====================
 
   Future<void> flush() async {
-    if (_isSyncing || !_backend.isAuthenticated || _queue.isEmpty) return;
+    if (_isSyncing) {
+      // A round is already running: remember the request instead of dropping
+      // it, so a write landing mid-push is flushed by the running call.
+      _flushRequestedWhileSyncing = true;
+      return;
+    }
+    if (!_backend.isAuthenticated || _queue.isEmpty) return;
     _isSyncing = true;
     onSyncStarted?.call();
     try {
-      await _flushQueue();
+      do {
+        _flushRequestedWhileSyncing = false;
+        await _flushQueue();
+      } while (_flushRequestedWhileSyncing && !_queue.isEmpty);
       lastError = null;
       lastSyncedAt = DateTime.now();
       onSyncCompleted?.call();
-    } on SyncBackendException catch (e) {
+    } catch (e) {
+      // Catch-all, not just SyncBackendException: a corrupt queue entry that
+      // fails to parse must surface as a visible sync error, never wedge the
+      // queue silently.
       lastError = e.toString();
       onSyncError?.call(lastError!);
     } finally {
@@ -142,14 +159,14 @@ class SyncEngine {
     for (final entry in _queue.entries()) {
       try {
         await _pushEntry(entry);
-      } on SyncBackendException catch (e) {
-        await _queue.recordFailure(entry.key, e.toString());
+      } catch (e) {
+        await _queue.recordFailure(entry, e.toString());
         rethrow;
       }
       // Version guard: if the record was re-edited while this push was in
       // flight, the coalesced newer entry stays queued for the next round
       // instead of being dropped by an unconditional remove.
-      final removed = await _queue.removeIfVersion(entry.key, entry.version);
+      final removed = await _queue.removeIfVersion(entry);
       if (removed) {
         await _hardDeleteIfTombstone(entry);
       }
@@ -164,6 +181,10 @@ class SyncEngine {
         await _backend.upsertShipment(Shipment.fromJson(entry.data));
       case 'packages':
         await _backend.upsertPackage(ShippingPackage.fromJson(entry.data));
+      default:
+        // Acking an unknown entry would silently lose data; fail loudly and
+        // keep it queued instead.
+        throw StateError('Unknown sync table: ${entry.table}');
     }
   }
 

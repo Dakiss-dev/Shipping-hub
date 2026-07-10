@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -149,6 +150,77 @@ void main() {
       await engine.flush();
       expect(backend.packages['p1']!.deletedAt, isNotNull);
       expect(backend.shipments['s1']!.deletedAt, isNotNull);
+    });
+  });
+
+  group('flush hardening', () {
+    test('an edit during an in-flight push survives and syncs in the same call',
+        () async {
+      backend.authenticated = false;
+      final customer = makeCustomer(id: 'c1', name: 'v1');
+      await engine.saveCustomer(customer);
+
+      backend.authenticated = true;
+      backend.upsertGate = Completer<void>();
+      final flushFuture = engine.flush();
+      await Future<void>.delayed(Duration.zero); // flush reaches the gate
+
+      // Edit mid-push: coalesces to version 2, auto-trigger is swallowed by
+      // the _isSyncing guard but sets the rerun flag.
+      customer.name = 'v2';
+      await engine.saveCustomer(customer);
+
+      backend.upsertGate!.complete();
+      backend.upsertGate = null;
+      await flushFuture;
+
+      // Both versions pushed in ONE flush call; the newer one wins in cloud.
+      expect(backend.callLog, ['upsertCustomer:c1', 'upsertCustomer:c1']);
+      expect(backend.customers['c1']!.name, 'v2');
+      expect(engine.pendingSyncCount, 0);
+      expect(storage.getCustomer('c1')!.name, 'v2');
+    });
+
+    test('a failed tombstone push stays hidden locally but is not hard-deleted',
+        () async {
+      backend.authenticated = false;
+      await engine.saveCustomer(makeCustomer(id: 'c1'));
+      await engine.deleteCustomer('c1');
+      backend.authenticated = true;
+      backend.failUpsertsWith = 'down';
+
+      await engine.flush();
+
+      expect(engine.pendingSyncCount, 1); // tombstone still queued
+      expect(storage.getCustomers(), isEmpty); // still hidden
+      expect(Hive.box('customers').get('c1'), isNotNull); // NOT hard-deleted
+      expect(engine.lastError, contains('down'));
+    });
+
+    test('a corrupt queue entry surfaces an error instead of wedging silently',
+        () async {
+      backend.authenticated = false;
+      await queue.enqueue(
+          table: 'customers', recordId: 'bad', data: {'nonsense': true});
+      backend.authenticated = true;
+
+      await engine.flush();
+
+      expect(engine.lastError, isNotNull);
+      expect(engine.pendingSyncCount, 1); // kept, with the failure recorded
+      expect(queue.entries().single.attempts, 1);
+    });
+
+    test('an unknown table entry errors loudly instead of being acked',
+        () async {
+      backend.authenticated = false;
+      await queue.enqueue(table: 'widgets', recordId: 'w1', data: {});
+      backend.authenticated = true;
+
+      await engine.flush();
+
+      expect(engine.pendingSyncCount, 1);
+      expect(engine.lastError, contains('widgets'));
     });
   });
 }
