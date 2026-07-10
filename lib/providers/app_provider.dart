@@ -64,7 +64,11 @@ class AppProvider extends ChangeNotifier {
   // ==================== INIT ====================
 
   Future<void> init() async {
-    await _storage.init();
+    // Supabase first: the storage namespace is the signed-in user id, so we
+    // must know it before opening the account's Hive boxes.
+    await _supabase.initialize();
+    await _storage.init(namespace: _supabase.currentUserId ?? 'local');
+
     _sync = SyncEngine(
       _storage,
       SupabaseBackend(() => _supabase.client),
@@ -87,16 +91,23 @@ class AppProvider extends ChangeNotifier {
       notifyListeners();
     };
 
-    // Try to init Supabase (non-blocking)
-    await _supabase.initialize();
-    
     _loadAll();
     _isLoading = false;
     notifyListeners();
 
     // If already authenticated, do a background sync
     if (_supabase.isAuthenticated) {
-      _sync.fullSync();
+      unawaited(_sync.fullSync());
+    }
+  }
+
+  /// Waits out any in-flight sync before a namespace switch, so a background
+  /// flush/pull can't land writes into the wrong account's boxes.
+  Future<void> _quiesceSync() async {
+    var guard = 0;
+    while (_sync.isSyncing && guard < 100) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      guard++;
     }
   }
 
@@ -133,8 +144,12 @@ class AppProvider extends ChangeNotifier {
         password: password,
         businessName: bName,
       );
-      // After signup, sync local data to cloud
+      // After signup, move into this account's namespace and sync.
       if (_supabase.isAuthenticated) {
+        await _quiesceSync();
+        await _storage.switchNamespace(_supabase.currentUserId!);
+        // Re-persist the business name into the fresh account namespace.
+        await _storage.setOperatorName(bName);
         await _sync.fullSync();
         _loadAll();
         notifyListeners();
@@ -152,8 +167,10 @@ class AppProvider extends ChangeNotifier {
     if (!_supabase.isConfigured) return 'Supabase not configured';
     try {
       await _supabase.signIn(email: email, password: password);
-      // After login, pull cloud data and merge
+      // After login, move into this account's namespace, then pull + merge.
       if (_supabase.isAuthenticated) {
+        await _quiesceSync();
+        await _storage.switchNamespace(_supabase.currentUserId!);
         // Pull operator profile FIRST so business name is correct immediately
         await _pullOperatorProfile();
         await _sync.fullSync();
@@ -184,6 +201,16 @@ class AppProvider extends ChangeNotifier {
         if (profile['language'] != null) {
           await _storage.setLanguage(profile['language'] as String);
         }
+        if (profile['air_pricing'] != null) {
+          final airData =
+              Map<String, dynamic>.from(profile['air_pricing'] as Map);
+          await _storage.setAirPricing(AirPricingConfig.fromJson(airData));
+        }
+        if (profile['sea_pricing'] != null) {
+          final seaData =
+              Map<String, dynamic>.from(profile['sea_pricing'] as Map);
+          await _storage.setSeaPricing(SeaPricingConfig.fromJson(seaData));
+        }
       }
     } catch (_) {
       // Non-fatal — sync will catch it later
@@ -193,6 +220,12 @@ class AppProvider extends ChangeNotifier {
   Future<void> signOut() async {
     try {
       await _supabase.signOut();
+      // Quiesce any in-flight sync, clear stale engine error state, and drop
+      // back to the local namespace so the next account starts clean.
+      await _quiesceSync();
+      _sync.lastError = null;
+      await _storage.switchNamespace('local');
+      _loadAll();
       notifyListeners();
     } catch (e) {
       if (kDebugMode) debugPrint('[Auth] Sign out error: $e');
@@ -249,11 +282,9 @@ class AppProvider extends ChangeNotifier {
 
   Future<void> manualSync() async {
     if (!_supabase.isAuthenticated) return;
-    _isSyncing = true;
-    notifyListeners();
+    // The engine's onSyncStarted/Completed callbacks drive _isSyncing.
     await _sync.fullSync();
     _loadAll();
-    _isSyncing = false;
     notifyListeners();
   }
 
@@ -335,22 +366,15 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> addPackage(ShippingPackage package) async {
-    // Reference numbers only need to be unique per operator, and all of this
-    // operator's packages are local — so collisions are caught here, before
-    // the DB unique constraint ever fires.
     final existingRefs = {
       for (final p in _packages)
         if (p.id != package.id) p.referenceNumber,
     };
-    var guard = 0;
-    while (existingRefs.contains(package.referenceNumber) && guard < 10) {
-      package.referenceNumber = ShippingPackage.freshReference();
-      guard++;
-    }
-    if (existingRefs.contains(package.referenceNumber)) {
-      if (kDebugMode) {
-        debugPrint('[Packages] Reference collision persisted after 10 retries: ${package.referenceNumber}');
-      }
+    final unique =
+        ShippingPackage.ensureUniqueReference(package, existingRefs);
+    if (!unique && kDebugMode) {
+      debugPrint(
+          '[Packages] Reference collision persisted after retries: ${package.referenceNumber}');
     }
     await _sync.savePackage(package);
     _packages = _storage.getPackages();

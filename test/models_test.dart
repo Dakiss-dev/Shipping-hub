@@ -57,4 +57,50 @@ void main() {
       expect(RegExp(r'^SH-\d{6}-[A-Z0-9]{4}$').hasMatch(ref), isTrue);
     });
   });
+
+  group('reference collision guard', () {
+    ShippingPackage makePackage() => ShippingPackage(
+          customerId: 'c1',
+          shipmentId: 's1',
+          shipmentType: ShipmentType.air,
+          price: 10,
+        );
+
+    test('ensureUniqueReference regenerates when the reference collides', () {
+      final pkg = makePackage();
+      final taken = {pkg.referenceNumber};
+      final unique = ShippingPackage.ensureUniqueReference(pkg, taken);
+      expect(unique, isTrue);
+      expect(taken.contains(pkg.referenceNumber), isFalse);
+      expect(RegExp(r'^SH-\d{6}-[A-Z0-9]{4}$').hasMatch(pkg.referenceNumber),
+          isTrue);
+    });
+
+    test('ensureUniqueReference leaves a non-colliding reference untouched',
+        () {
+      final pkg = makePackage();
+      final original = pkg.referenceNumber;
+      final unique =
+          ShippingPackage.ensureUniqueReference(pkg, {'SH-000000-ZZZZ'});
+      expect(unique, isTrue);
+      expect(pkg.referenceNumber, original);
+    });
+
+    test('ensureUniqueReference reports failure when every attempt collides',
+        () {
+      final pkg = makePackage();
+      // Force exhaustion: seed the set with the current reference AND every
+      // reference freshReference could produce, by capturing them as they are
+      // generated. A pre-seeded set can't do that (refs are random), so we
+      // drive maxAttempts to 0 — the guard makes no attempts and reports the
+      // still-colliding reference as not unique.
+      final taken = {pkg.referenceNumber};
+      final unique = ShippingPackage.ensureUniqueReference(
+        pkg,
+        taken,
+        maxAttempts: 0,
+      );
+      expect(unique, isFalse);
+    });
+  });
 }

@@ -216,6 +216,25 @@ class ShippingPackage {
   /// detected before first sync.
   static String freshReference() => _generateRefNumber();
 
+  /// Regenerates [package]'s referenceNumber until it no longer collides with
+  /// [existingReferences], up to [maxAttempts]. Reference numbers only need to
+  /// be unique per operator, and all of an operator's packages are local, so
+  /// collisions are resolved here before the DB unique constraint fires.
+  /// Returns true when the reference is unique, false if attempts ran out.
+  static bool ensureUniqueReference(
+    ShippingPackage package,
+    Set<String> existingReferences, {
+    int maxAttempts = 10,
+  }) {
+    var attempts = 0;
+    while (existingReferences.contains(package.referenceNumber) &&
+        attempts < maxAttempts) {
+      package.referenceNumber = freshReference();
+      attempts++;
+    }
+    return !existingReferences.contains(package.referenceNumber);
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'referenceNumber': referenceNumber,
