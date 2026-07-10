@@ -1012,7 +1012,7 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
     );
   }
 
-  void _savePackage() {
+  Future<void> _savePackage() async {
     if (_formKey.currentState?.validate() != true) return;
 
     if (_selectedCustomer == null) {
@@ -1059,7 +1059,8 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
           : null,
     );
 
-    context.read<AppProvider>().addPackage(pkg);
+    await context.read<AppProvider>().addPackage(pkg);
+    if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

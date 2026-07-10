@@ -306,6 +306,11 @@ class AppProvider extends ChangeNotifier {
       package.referenceNumber = ShippingPackage.freshReference();
       guard++;
     }
+    if (existingRefs.contains(package.referenceNumber)) {
+      if (kDebugMode) {
+        debugPrint('[Packages] Reference collision persisted after 10 retries: ${package.referenceNumber}');
+      }
+    }
     await _sync.savePackage(package);
     _packages = _storage.getPackages();
     notifyListeners();
