@@ -56,4 +56,36 @@ void main() {
     expect(queue.pendingRecordIds('customers'), {'c1'});
     expect(queue.pendingRecordIds('shipments'), isEmpty);
   });
+
+  test('removeIfVersion refuses to drop a version coalesced mid-push', () async {
+    await queue.enqueue(table: 'customers', recordId: 'c1', data: {'v': 1});
+    final snapshot = queue.entries().single; // engine snapshots, starts push
+    await queue.enqueue(table: 'customers', recordId: 'c1', data: {'v': 2});
+    final removed = await queue.removeIfVersion(snapshot.key, snapshot.version);
+    expect(removed, isFalse); // newer edit survives
+    final current = queue.entries().single;
+    expect(current.data['v'], 2);
+    expect(await queue.removeIfVersion(current.key, current.version), isTrue);
+    expect(queue.isEmpty, isTrue);
+  });
+
+  test('coalescing resets attempts and lastError, bumps version', () async {
+    await queue.enqueue(table: 'customers', recordId: 'c1', data: {'v': 1});
+    final first = queue.entries().single;
+    await queue.recordFailure(first.key, 'boom');
+    await queue.enqueue(table: 'customers', recordId: 'c1', data: {'v': 2});
+    final coalesced = queue.entries().single;
+    expect(coalesced.attempts, 0);
+    expect(coalesced.lastError, isNull);
+    expect(coalesced.version, first.version + 1);
+    expect(queue.firstError, isNull);
+  });
+
+  test('FIFO order holds numerically past ten entries', () async {
+    for (var i = 0; i < 12; i++) {
+      await queue.enqueue(table: 'customers', recordId: 'c$i', data: {'i': i});
+    }
+    expect(queue.entries().map((e) => e.recordId).toList(),
+        [for (var i = 0; i < 12; i++) 'c$i']);
+  });
 }
