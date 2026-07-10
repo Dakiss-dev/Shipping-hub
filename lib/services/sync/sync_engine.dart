@@ -199,4 +199,85 @@ class SyncEngine {
         await _storage.deletePackage(entry.recordId);
     }
   }
+
+  // ==================== FULL SYNC ====================
+
+  /// Push-then-pull under one lock. A flush failure records the error but
+  /// does not block the pull: merging is safe because records with queued
+  /// local edits are skipped. On success, a flush requested mid-sync (a
+  /// write landing during the pull) is chained immediately instead of
+  /// waiting for the next external trigger.
+  Future<void> fullSync() async {
+    if (_isSyncing || !_backend.isAuthenticated) return;
+    _isSyncing = true;
+    onSyncStarted?.call();
+    var flushErrored = false;
+    try {
+      try {
+        await _flushQueue();
+      } catch (e) {
+        // Catch-all mirrors flush(): a corrupt entry must surface, not wedge.
+        flushErrored = true;
+        lastError = e.toString();
+        onSyncError?.call(lastError!);
+      }
+
+      final snapshot = await _backend.pullAll();
+      await _mergeSnapshot(snapshot);
+
+      if (!flushErrored) lastError = null;
+      lastSyncedAt = DateTime.now();
+      onSyncCompleted?.call();
+    } catch (e) {
+      lastError = e.toString();
+      onSyncError?.call(lastError!);
+    } finally {
+      _isSyncing = false;
+      if (_flushRequestedWhileSyncing && lastError == null) {
+        _flushRequestedWhileSyncing = false;
+        unawaited(flush());
+      }
+    }
+  }
+
+  Future<void> _mergeSnapshot(CloudSnapshot snapshot) async {
+    final pendingCustomers = _queue.pendingRecordIds('customers');
+    for (final cloud in snapshot.customers) {
+      if (pendingCustomers.contains(cloud.id)) continue;
+      if (cloud.deletedAt != null) {
+        await _storage.deleteCustomer(cloud.id);
+        continue;
+      }
+      final local = _storage.getCustomer(cloud.id);
+      if (local == null || cloud.updatedAt.isAfter(local.updatedAt)) {
+        await _storage.saveCustomer(cloud);
+      }
+    }
+
+    final pendingShipments = _queue.pendingRecordIds('shipments');
+    for (final cloud in snapshot.shipments) {
+      if (pendingShipments.contains(cloud.id)) continue;
+      if (cloud.deletedAt != null) {
+        await _storage.deleteShipment(cloud.id);
+        continue;
+      }
+      final local = _storage.getShipment(cloud.id);
+      if (local == null || cloud.updatedAt.isAfter(local.updatedAt)) {
+        await _storage.saveShipment(cloud);
+      }
+    }
+
+    final pendingPackages = _queue.pendingRecordIds('packages');
+    for (final cloud in snapshot.packages) {
+      if (pendingPackages.contains(cloud.id)) continue;
+      if (cloud.deletedAt != null) {
+        await _storage.deletePackage(cloud.id);
+        continue;
+      }
+      final local = _storage.getPackage(cloud.id);
+      if (local == null || cloud.updatedAt.isAfter(local.updatedAt)) {
+        await _storage.savePackage(cloud);
+      }
+    }
+  }
 }

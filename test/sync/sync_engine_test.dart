@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:shipping_hub/models/models.dart';
 import 'package:shipping_hub/services/storage_service.dart';
+import 'package:shipping_hub/services/sync/sync_backend.dart';
 import 'package:shipping_hub/services/sync/sync_engine.dart';
 import 'package:shipping_hub/services/sync/sync_queue.dart';
 import 'fake_backend.dart';
@@ -221,6 +222,120 @@ void main() {
 
       expect(engine.pendingSyncCount, 1);
       expect(engine.lastError, contains('widgets'));
+    });
+  });
+
+  group('fullSync', () {
+    test('flushes queued writes BEFORE pulling (guard-ordering regression)',
+        () async {
+      backend.authenticated = false;
+      await engine.saveCustomer(makeCustomer(id: 'c1'));
+      backend.authenticated = true;
+
+      await engine.fullSync();
+
+      expect(backend.callLog.first, 'upsertCustomer:c1');
+      expect(backend.callLog.last, 'pullAll');
+      expect(engine.pendingSyncCount, 0);
+    });
+
+    test('cloud record newer than local overwrites it', () async {
+      backend.authenticated = false;
+      final local = makeCustomer(id: 'c1', name: 'Old Name');
+      await engine.saveCustomer(local);
+      backend.authenticated = true;
+      await engine.flush(); // queue is now empty
+
+      final cloud = makeCustomer(id: 'c1', name: 'New Name')
+        ..updatedAt = DateTime.now().add(const Duration(minutes: 1));
+      backend.nextSnapshot = CloudSnapshot(customers: [cloud]);
+
+      await engine.fullSync();
+      expect(storage.getCustomer('c1')!.name, 'New Name');
+    });
+
+    test('local record newer than cloud is kept', () async {
+      backend.authenticated = false;
+      final local = makeCustomer(id: 'c1', name: 'Fresh Local');
+      await engine.saveCustomer(local);
+      backend.authenticated = true;
+      await engine.flush();
+
+      final cloud = makeCustomer(id: 'c1', name: 'Stale Cloud')
+        ..updatedAt = DateTime.now().subtract(const Duration(days: 1));
+      backend.nextSnapshot = CloudSnapshot(customers: [cloud]);
+
+      await engine.fullSync();
+      expect(storage.getCustomer('c1')!.name, 'Fresh Local');
+    });
+
+    test('a record with a queued local edit is never overwritten', () async {
+      backend.authenticated = false;
+      await engine.saveCustomer(makeCustomer(id: 'c1', name: 'Queued Edit'));
+
+      // Cloud claims to be newer, but the local edit hasn't flushed yet.
+      final cloud = makeCustomer(id: 'c1', name: 'Cloud Version')
+        ..updatedAt = DateTime.now().add(const Duration(hours: 1));
+      backend.nextSnapshot = CloudSnapshot(customers: [cloud]);
+      backend.authenticated = true;
+      backend.failUpsertsWith = 'flush blocked'; // flush fails, pull proceeds
+
+      await engine.fullSync();
+
+      // The merge RAN (pull succeeded) but skipped c1 because its edit is
+      // still queued — this is the line that protects unflushed local edits.
+      expect(storage.getCustomer('c1')!.name, 'Queued Edit');
+      expect(engine.pendingSyncCount, 1);
+    });
+
+    test('a cloud tombstone removes the local record', () async {
+      backend.authenticated = false;
+      await engine.saveCustomer(makeCustomer(id: 'c1'));
+      backend.authenticated = true;
+      await engine.flush();
+
+      final tombstone = makeCustomer(id: 'c1')
+        ..deletedAt = DateTime.now()
+        ..updatedAt = DateTime.now();
+      backend.nextSnapshot = CloudSnapshot(customers: [tombstone]);
+
+      await engine.fullSync();
+      expect(storage.getCustomer('c1'), isNull);
+      expect(Hive.box('customers').get('c1'), isNull);
+    });
+
+    test('flush failure during fullSync still pulls (error recorded)',
+        () async {
+      backend.authenticated = false;
+      await engine.saveCustomer(makeCustomer(id: 'c1'));
+      backend.authenticated = true;
+      backend.failUpsertsWith = 'network down';
+
+      await engine.fullSync();
+
+      expect(engine.lastError, contains('network down'));
+      expect(engine.pendingSyncCount, 1);
+      expect(backend.callLog, contains('pullAll'));
+    });
+
+    test('a write during the pull is flushed right after the sync', () async {
+      backend.authenticated = true;
+      backend.pullGate = Completer<void>();
+      final syncFuture = engine.fullSync();
+      await Future<void>.delayed(Duration.zero); // fullSync parks on the pull
+
+      // This write's auto-trigger is swallowed (_isSyncing) but sets the
+      // rerun flag; fullSync chains a flush on success so it isn't stranded.
+      await engine.saveCustomer(makeCustomer(id: 'c1'));
+
+      backend.pullGate!.complete();
+      backend.pullGate = null;
+      await syncFuture;
+      await Future<void>.delayed(Duration.zero);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(backend.customers.containsKey('c1'), isTrue);
+      expect(engine.pendingSyncCount, 0);
     });
   });
 }

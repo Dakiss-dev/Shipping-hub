@@ -12,6 +12,9 @@ class FakeBackend implements SyncBackend {
   /// lets tests interleave writes with an in-flight push deterministically.
   Completer<void>? upsertGate;
 
+  /// When set, pullAll parks on this until the test completes it.
+  Completer<void>? pullGate;
+
   final List<String> callLog = [];
   final Map<String, Customer> customers = {};
   final Map<String, Shipment> shipments = {};
@@ -65,6 +68,7 @@ class FakeBackend implements SyncBackend {
   @override
   Future<CloudSnapshot> pullAll() async {
     callLog.add('pullAll');
+    if (pullGate != null) await pullGate!.future;
     if (failPullWith != null) {
       throw SyncBackendException('pull_all', '-', failPullWith!);
     }
