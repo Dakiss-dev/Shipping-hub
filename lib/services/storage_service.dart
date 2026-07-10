@@ -9,6 +9,15 @@ class StorageService {
 
   Future<void> init() async {
     await Hive.initFlutter();
+    await _openBoxes();
+  }
+
+  /// Test hook: callers must run `Hive.init` with a temp dir first.
+  Future<void> initForTest() async {
+    await _openBoxes();
+  }
+
+  Future<void> _openBoxes() async {
     await Hive.openBox(_customersBox);
     await Hive.openBox(_shipmentsBox);
     await Hive.openBox(_packagesBox);
@@ -21,6 +30,7 @@ class StorageService {
     final box = Hive.box(_customersBox);
     return box.values
         .map((e) => Customer.fromJson(Map<String, dynamic>.from(e as Map)))
+        .where((c) => c.deletedAt == null)
         .toList()
       ..sort((a, b) => a.name.compareTo(b.name));
   }
@@ -39,7 +49,8 @@ class StorageService {
     final box = Hive.box(_customersBox);
     final data = box.get(id);
     if (data == null) return null;
-    return Customer.fromJson(Map<String, dynamic>.from(data as Map));
+    final customer = Customer.fromJson(Map<String, dynamic>.from(data as Map));
+    return customer.deletedAt == null ? customer : null;
   }
 
   // ==================== SHIPMENTS ====================
@@ -48,6 +59,7 @@ class StorageService {
     final box = Hive.box(_shipmentsBox);
     return box.values
         .map((e) => Shipment.fromJson(Map<String, dynamic>.from(e as Map)))
+        .where((s) => s.deletedAt == null)
         .toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
@@ -74,7 +86,8 @@ class StorageService {
     final box = Hive.box(_shipmentsBox);
     final data = box.get(id);
     if (data == null) return null;
-    return Shipment.fromJson(Map<String, dynamic>.from(data as Map));
+    final shipment = Shipment.fromJson(Map<String, dynamic>.from(data as Map));
+    return shipment.deletedAt == null ? shipment : null;
   }
 
   // ==================== PACKAGES ====================
@@ -84,6 +97,7 @@ class StorageService {
     return box.values
         .map(
             (e) => ShippingPackage.fromJson(Map<String, dynamic>.from(e as Map)))
+        .where((p) => p.deletedAt == null)
         .toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
@@ -100,6 +114,14 @@ class StorageService {
   Future<void> deletePackage(String id) async {
     final box = Hive.box(_packagesBox);
     await box.delete(id);
+  }
+
+  ShippingPackage? getPackage(String id) {
+    final box = Hive.box(_packagesBox);
+    final data = box.get(id);
+    if (data == null) return null;
+    final pkg = ShippingPackage.fromJson(Map<String, dynamic>.from(data as Map));
+    return pkg.deletedAt == null ? pkg : null;
   }
 
   // ==================== SETTINGS ====================

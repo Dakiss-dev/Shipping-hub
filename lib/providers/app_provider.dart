@@ -294,6 +294,18 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> addPackage(ShippingPackage package) async {
+    // Reference numbers only need to be unique per operator, and all of this
+    // operator's packages are local — so collisions are caught here, before
+    // the DB unique constraint ever fires.
+    final existingRefs = {
+      for (final p in _packages)
+        if (p.id != package.id) p.referenceNumber,
+    };
+    var guard = 0;
+    while (existingRefs.contains(package.referenceNumber) && guard < 10) {
+      package.referenceNumber = ShippingPackage.freshReference();
+      guard++;
+    }
     await _sync.savePackage(package);
     _packages = _storage.getPackages();
     notifyListeners();

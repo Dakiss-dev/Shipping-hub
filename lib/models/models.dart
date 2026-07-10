@@ -30,6 +30,8 @@ class Customer {
   String phoneCountryCode;
   String? email;
   final DateTime createdAt;
+  DateTime updatedAt;
+  DateTime? deletedAt;
 
   Customer({
     String? id,
@@ -38,8 +40,11 @@ class Customer {
     this.phoneCountryCode = '+1',
     this.email,
     DateTime? createdAt,
+    DateTime? updatedAt,
+    this.deletedAt,
   })  : id = id ?? _uuid.v4(),
-        createdAt = createdAt ?? DateTime.now();
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? createdAt ?? DateTime.now();
 
   /// Full international phone number
   String get fullPhone {
@@ -56,16 +61,27 @@ class Customer {
         'phoneCountryCode': phoneCountryCode,
         'email': email,
         'createdAt': createdAt.toIso8601String(),
+        'updatedAt': updatedAt.toIso8601String(),
+        'deletedAt': deletedAt?.toIso8601String(),
       };
 
-  factory Customer.fromJson(Map<String, dynamic> json) => Customer(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        phone: json['phone'] as String,
-        phoneCountryCode: json['phoneCountryCode'] as String? ?? '+1',
-        email: json['email'] as String?,
-        createdAt: DateTime.parse(json['createdAt'] as String),
-      );
+  factory Customer.fromJson(Map<String, dynamic> json) {
+    final created = DateTime.parse(json['createdAt'] as String);
+    return Customer(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      phone: json['phone'] as String,
+      phoneCountryCode: json['phoneCountryCode'] as String? ?? '+1',
+      email: json['email'] as String?,
+      createdAt: created,
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'] as String)
+          : created,
+      deletedAt: json['deletedAt'] != null
+          ? DateTime.parse(json['deletedAt'] as String)
+          : null,
+    );
+  }
 }
 
 // ==================== PRICING CONFIG ====================
@@ -143,7 +159,7 @@ class SeaPricingConfig {
 
 class ShippingPackage {
   final String id;
-  final String referenceNumber;
+  String referenceNumber;
   final String customerId;
   final String shipmentId;
   final ShipmentType shipmentType;
@@ -155,6 +171,8 @@ class ShippingPackage {
   double price;
   PaymentStatus paymentStatus;
   final DateTime createdAt;
+  DateTime updatedAt;
+  DateTime? deletedAt;
   String? notes;
   // Receiver (destinataire) info
   String? receiverName;
@@ -175,13 +193,16 @@ class ShippingPackage {
     required this.price,
     this.paymentStatus = PaymentStatus.unpaid,
     DateTime? createdAt,
+    DateTime? updatedAt,
+    this.deletedAt,
     this.notes,
     this.receiverName,
     this.receiverPhone,
     this.receiverPhoneCountryCode,
   })  : id = id ?? _uuid.v4(),
         referenceNumber = referenceNumber ?? _generateRefNumber(),
-        createdAt = createdAt ?? DateTime.now();
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? createdAt ?? DateTime.now();
 
   static String _generateRefNumber() {
     final now = DateTime.now();
@@ -190,6 +211,10 @@ class ShippingPackage {
     final randomPart = _uuid.v4().substring(0, 4).toUpperCase();
     return 'SH-$datePart-$randomPart';
   }
+
+  /// Public regeneration hook used when a local reference collision is
+  /// detected before first sync.
+  static String freshReference() => _generateRefNumber();
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -205,37 +230,46 @@ class ShippingPackage {
         'price': price,
         'paymentStatus': paymentStatus.name,
         'createdAt': createdAt.toIso8601String(),
+        'updatedAt': updatedAt.toIso8601String(),
+        'deletedAt': deletedAt?.toIso8601String(),
         'notes': notes,
         'receiverName': receiverName,
         'receiverPhone': receiverPhone,
         'receiverPhoneCountryCode': receiverPhoneCountryCode,
       };
 
-  factory ShippingPackage.fromJson(Map<String, dynamic> json) =>
-      ShippingPackage(
-        id: json['id'] as String,
-        referenceNumber: json['referenceNumber'] as String,
-        customerId: json['customerId'] as String,
-        shipmentId: json['shipmentId'] as String,
-        shipmentType: ShipmentType.values
-            .firstWhere((e) => e.name == json['shipmentType']),
-        photoPath: json['photoPath'] as String?,
-        description: json['description'] as String? ?? '',
-        weightKg: (json['weightKg'] as num?)?.toDouble(),
-        seaItemType: json['seaItemType'] != null
-            ? SeaItemType.values
-                .firstWhere((e) => e.name == json['seaItemType'])
-            : null,
-        presetItemName: json['presetItemName'] as String?,
-        price: (json['price'] as num).toDouble(),
-        paymentStatus: PaymentStatus.values
-            .firstWhere((e) => e.name == json['paymentStatus']),
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        notes: json['notes'] as String?,
-        receiverName: json['receiverName'] as String?,
-        receiverPhone: json['receiverPhone'] as String?,
-        receiverPhoneCountryCode: json['receiverPhoneCountryCode'] as String?,
-      );
+  factory ShippingPackage.fromJson(Map<String, dynamic> json) {
+    final created = DateTime.parse(json['createdAt'] as String);
+    return ShippingPackage(
+      id: json['id'] as String,
+      referenceNumber: json['referenceNumber'] as String,
+      customerId: json['customerId'] as String,
+      shipmentId: json['shipmentId'] as String,
+      shipmentType: ShipmentType.values
+          .firstWhere((e) => e.name == json['shipmentType']),
+      photoPath: json['photoPath'] as String?,
+      description: json['description'] as String? ?? '',
+      weightKg: (json['weightKg'] as num?)?.toDouble(),
+      seaItemType: json['seaItemType'] != null
+          ? SeaItemType.values.firstWhere((e) => e.name == json['seaItemType'])
+          : null,
+      presetItemName: json['presetItemName'] as String?,
+      price: (json['price'] as num).toDouble(),
+      paymentStatus: PaymentStatus.values
+          .firstWhere((e) => e.name == json['paymentStatus']),
+      createdAt: created,
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'] as String)
+          : created,
+      deletedAt: json['deletedAt'] != null
+          ? DateTime.parse(json['deletedAt'] as String)
+          : null,
+      notes: json['notes'] as String?,
+      receiverName: json['receiverName'] as String?,
+      receiverPhone: json['receiverPhone'] as String?,
+      receiverPhoneCountryCode: json['receiverPhoneCountryCode'] as String?,
+    );
+  }
 }
 
 // ==================== SHIPMENT ====================
@@ -247,6 +281,8 @@ class Shipment {
   String destination; // Country/city
   ShipmentStatus status;
   final DateTime createdAt;
+  DateTime updatedAt;
+  DateTime? deletedAt;
   DateTime? departureDate;
   DateTime? estimatedArrival;
   String? notes;
@@ -258,11 +294,14 @@ class Shipment {
     required this.destination,
     this.status = ShipmentStatus.open,
     DateTime? createdAt,
+    DateTime? updatedAt,
+    this.deletedAt,
     this.departureDate,
     this.estimatedArrival,
     this.notes,
   })  : id = id ?? _uuid.v4(),
-        createdAt = createdAt ?? DateTime.now();
+        createdAt = createdAt ?? DateTime.now(),
+        updatedAt = updatedAt ?? createdAt ?? DateTime.now();
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -271,27 +310,38 @@ class Shipment {
         'destination': destination,
         'status': status.name,
         'createdAt': createdAt.toIso8601String(),
+        'updatedAt': updatedAt.toIso8601String(),
+        'deletedAt': deletedAt?.toIso8601String(),
         'departureDate': departureDate?.toIso8601String(),
         'estimatedArrival': estimatedArrival?.toIso8601String(),
         'notes': notes,
       };
 
-  factory Shipment.fromJson(Map<String, dynamic> json) => Shipment(
-        id: json['id'] as String,
-        name: json['name'] as String,
-        type: ShipmentType.values.firstWhere((e) => e.name == json['type']),
-        destination: json['destination'] as String,
-        status: ShipmentStatus.values
-            .firstWhere((e) => e.name == json['status']),
-        createdAt: DateTime.parse(json['createdAt'] as String),
-        departureDate: json['departureDate'] != null
-            ? DateTime.parse(json['departureDate'] as String)
-            : null,
-        estimatedArrival: json['estimatedArrival'] != null
-            ? DateTime.parse(json['estimatedArrival'] as String)
-            : null,
-        notes: json['notes'] as String?,
-      );
+  factory Shipment.fromJson(Map<String, dynamic> json) {
+    final created = DateTime.parse(json['createdAt'] as String);
+    return Shipment(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      type: ShipmentType.values.firstWhere((e) => e.name == json['type']),
+      destination: json['destination'] as String,
+      status:
+          ShipmentStatus.values.firstWhere((e) => e.name == json['status']),
+      createdAt: created,
+      updatedAt: json['updatedAt'] != null
+          ? DateTime.parse(json['updatedAt'] as String)
+          : created,
+      deletedAt: json['deletedAt'] != null
+          ? DateTime.parse(json['deletedAt'] as String)
+          : null,
+      departureDate: json['departureDate'] != null
+          ? DateTime.parse(json['departureDate'] as String)
+          : null,
+      estimatedArrival: json['estimatedArrival'] != null
+          ? DateTime.parse(json['estimatedArrival'] as String)
+          : null,
+      notes: json['notes'] as String?,
+    );
+  }
 }
 
 // ==================== HELPERS ====================
