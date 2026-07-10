@@ -27,8 +27,8 @@ Flutter/Dart · Supabase (PostgreSQL, Auth) · PWA web target
 flutter pub get
 
 # create a Supabase project, apply supabase/schema.sql, then:
-flutter run --dart-define=SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co \
-            --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY
+cp env.example.json env.json   # fill in your project URL + anon key
+flutter run --dart-define-from-file=env.json
 ```
 
 ## Status
