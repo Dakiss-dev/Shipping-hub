@@ -1210,8 +1210,13 @@ class SyncEngine {
         await _queue.recordFailure(entry.key, e.toString());
         rethrow;
       }
-      await _queue.remove(entry.key);
-      await _hardDeleteIfTombstone(entry);
+      // Version guard: if the record was re-edited while this push was in
+      // flight, the coalesced newer entry stays queued for the next round
+      // instead of being dropped by an unconditional remove.
+      final removed = await _queue.removeIfVersion(entry.key, entry.version);
+      if (removed) {
+        await _hardDeleteIfTombstone(entry);
+      }
     }
   }
 
