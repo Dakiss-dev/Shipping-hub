@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 import '../services/storage_service.dart';
 import '../services/supabase_service.dart';
+import '../services/supabase_config.dart';
 import '../services/sync/supabase_backend.dart';
 import '../services/sync/sync_engine.dart';
 import '../services/sync/sync_queue.dart';
@@ -376,7 +377,8 @@ class AppProvider extends ChangeNotifier {
     return _packages.where((p) => p.shipmentId == shipmentId).toList();
   }
 
-  Future<void> addPackage(ShippingPackage package) async {
+  Future<void> addPackage(ShippingPackage package,
+      {Uint8List? photoBytes}) async {
     final existingRefs = {
       for (final p in _packages)
         if (p.id != package.id) p.referenceNumber,
@@ -387,10 +389,41 @@ class AppProvider extends ChangeNotifier {
       debugPrint(
           '[Packages] Reference collision persisted after retries: ${package.referenceNumber}');
     }
+    // Photos live in cloud storage so they survive across devices and can
+    // appear on the customer tracking page. The captured image is only kept
+    // as photoPath once it is a real storage URL — a device-local path or web
+    // blob URL is meaningless elsewhere, would be clobbered on the next sync,
+    // and would render as a broken placeholder on other devices, so if the
+    // upload can't happen (offline, signed out, or an error) we drop it and
+    // photoPathAttached stays false so the UI can tell the operator.
+    photoWasDropped = false;
+    if (photoBytes != null) {
+      if (_supabase.isAuthenticated && _sync.isOnline) {
+        try {
+          package.photoPath = await _supabase.uploadPackagePhoto(
+            operatorId: _supabase.currentUserId!,
+            packageId: package.id,
+            bytes: photoBytes,
+          );
+        } catch (e) {
+          if (kDebugMode) debugPrint('[Packages] Photo upload failed: $e');
+          package.photoPath = null;
+          photoWasDropped = true;
+        }
+      } else {
+        package.photoPath = null;
+        photoWasDropped = true;
+      }
+    }
     await _sync.savePackage(package);
     _packages = _storage.getPackages();
     notifyListeners();
   }
+
+  /// True when the most recent addPackage had a photo it could not upload
+  /// (offline/signed out/error) and therefore did not attach. The intake
+  /// screen reads this to warn the operator.
+  bool photoWasDropped = false;
 
   Future<void> updatePackage(ShippingPackage package) async {
     await _sync.savePackage(package);
@@ -399,6 +432,18 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> deletePackage(String id) async {
+    // Best-effort cloud photo cleanup before the row is tombstoned, so the
+    // storage object doesn't outlive the package (freemium quota hygiene).
+    final pkg = _storage.getPackage(id);
+    if (pkg != null &&
+        pkg.photoPath != null &&
+        pkg.photoPath!.startsWith('http') &&
+        _supabase.isAuthenticated) {
+      unawaited(_supabase.deletePackagePhoto(
+        operatorId: _supabase.currentUserId!,
+        packageId: id,
+      ));
+    }
     await _sync.deletePackage(id);
     _packages = _storage.getPackages();
     notifyListeners();
@@ -599,6 +644,12 @@ class AppProvider extends ChangeNotifier {
     buffer.writeln(
         'Please keep this reference number for pickup. We will notify you when the package arrives.');
     buffer.writeln('');
+    final base = SupabaseConfig.trackingBaseUrl(Uri.base);
+    if (base.isNotEmpty) {
+      buffer.writeln('Track your package:');
+      buffer.writeln('$base/?t=${pkg.trackingToken}');
+      buffer.writeln('');
+    }
     buffer.writeln(_operatorName);
 
     return buffer.toString();

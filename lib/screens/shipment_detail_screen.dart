@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../models/models.dart';
+import '../l10n/app_localizations.dart';
+import '../widgets/package_photo.dart';
 import '../theme.dart';
 import 'new_package_screen.dart';
 import 'package_detail_screen.dart';
@@ -347,19 +349,14 @@ class ShipmentDetailScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.grey.shade200),
                 ),
-                child: pkg.photoPath != null
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(11),
-                        child: Image.network(
-                          pkg.photoPath!,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => const Icon(
-                              Icons.inventory_2,
-                              color: AppColors.textSecondary),
-                        ),
-                      )
-                    : const Icon(Icons.inventory_2,
-                        color: AppColors.textSecondary),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(11),
+                  child: PackagePhoto(
+                    photoPath: pkg.photoPath,
+                    width: 56,
+                    height: 56,
+                  ),
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -415,7 +412,8 @@ class ShipmentDetailScreen extends StatelessWidget {
                     Row(
                       children: [
                         GestureDetector(
-                          onTap: () => provider.togglePaymentStatus(pkg),
+                          onTap: () => _togglePaymentWithUndo(
+                              context, provider, pkg, provider.l10n),
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 8, vertical: 2),
@@ -497,6 +495,24 @@ class ShipmentDetailScreen extends StatelessWidget {
       Shipment shipment, ShipmentStatus status) {
     shipment.status = status;
     provider.updateShipment(shipment);
+  }
+
+  /// Toggle payment and offer an immediate one-tap undo. The status flips
+  /// synchronously inside togglePaymentStatus (before its await), so reading
+  /// pkg right after reflects the new state.
+  void _togglePaymentWithUndo(BuildContext context, AppProvider provider,
+      ShippingPackage pkg, AppLocalizations l) {
+    provider.togglePaymentStatus(pkg);
+    final nowPaid = pkg.paymentStatus == PaymentStatus.paid;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(nowPaid ? l.t('markedPaid') : l.t('markedUnpaid')),
+        action: SnackBarAction(
+          label: l.t('undo'),
+          onPressed: () => provider.togglePaymentStatus(pkg),
+        ),
+      ),
+    );
   }
 
   void _deleteShipment(

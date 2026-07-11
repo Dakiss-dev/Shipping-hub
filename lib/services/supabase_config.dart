@@ -15,4 +15,22 @@ class SupabaseConfig {
 
   /// Check if Supabase is configured
   static bool get isConfigured => url.isNotEmpty && anonKey.isNotEmpty;
+
+  /// Base URL used for customer tracking links on receipts. Set this to the
+  /// deployed PWA origin (e.g. https://track.dakissmedia.com) at build time;
+  /// when unset it falls back to the running app's own origin so the link
+  /// works in local/dev.
+  static const String _trackingBaseUrl =
+      String.fromEnvironment('TRACKING_BASE_URL');
+
+  /// Returns the tracking base, or '' when none is available. On non-web
+  /// builds `appBase` is a `file:///` URI whose `.origin` THROWS, so we only
+  /// fall back to it for http(s). Callers must omit the link when this is ''.
+  static String trackingBaseUrl(Uri appBase) {
+    if (_trackingBaseUrl.isNotEmpty) return _trackingBaseUrl;
+    if (appBase.isScheme('http') || appBase.isScheme('https')) {
+      return appBase.origin;
+    }
+    return '';
+  }
 }

@@ -224,4 +224,54 @@ class SupabaseService {
         .eq('id', currentUserId!);
   }
 
+  // ==================== STORAGE ====================
+
+  /// Uploads a package photo to the `package-photos` bucket under the
+  /// operator's own folder (`{operatorId}/{packageId}.jpg`) and returns the
+  /// public URL. `uploadBinary` works on both web and mobile. Throws on
+  /// failure so the caller can fall back to the local path.
+  Future<String> uploadPackagePhoto({
+    required String operatorId,
+    required String packageId,
+    required Uint8List bytes,
+  }) async {
+    final path = '$operatorId/$packageId.jpg';
+    await _client!.storage.from('package-photos').uploadBinary(
+          path,
+          bytes,
+          fileOptions:
+              const FileOptions(contentType: 'image/jpeg', upsert: true),
+        );
+    return _client!.storage.from('package-photos').getPublicUrl(path);
+  }
+
+  /// Public package tracking by unguessable token. Calls the SECURITY DEFINER
+  /// `track_package` RPC, which returns only safe customer-facing fields (no
+  /// payment status, no receiver PII). Returns null when the token has no
+  /// match. Works with the anon key — no sign-in required.
+  Future<Map<String, dynamic>?> trackPackage(String token) async {
+    if (_client == null) return null;
+    final rows =
+        await _client!.rpc('track_package', params: {'p_token': token});
+    if (rows is List && rows.isNotEmpty) {
+      return Map<String, dynamic>.from(rows.first as Map);
+    }
+    return null;
+  }
+
+  /// Best-effort removal of a package's photo from storage when the package is
+  /// deleted, so orphaned photos don't accumulate against the storage quota.
+  /// Swallows errors (not-found, offline) — cleanup is not worth failing over.
+  Future<void> deletePackagePhoto({
+    required String operatorId,
+    required String packageId,
+  }) async {
+    try {
+      await _client!.storage
+          .from('package-photos')
+          .remove(['$operatorId/$packageId.jpg']);
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Packages] Photo cleanup failed: $e');
+    }
+  }
 }

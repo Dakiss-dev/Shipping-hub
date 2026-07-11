@@ -50,7 +50,8 @@ class DashboardScreen extends StatelessWidget {
         ],
       ),
       body: RefreshIndicator(
-        onRefresh: () async {},
+        // Pull-to-refresh runs a real cloud sync (no-op when signed out).
+        onRefresh: () => context.read<AppProvider>().manualSync(),
         child: ListView(
           padding: const EdgeInsets.only(bottom: 100),
           children: [

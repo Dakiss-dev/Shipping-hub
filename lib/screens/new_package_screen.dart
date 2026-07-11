@@ -7,6 +7,7 @@ import '../models/models.dart';
 import '../models/country_codes.dart';
 import '../services/contact_service.dart';
 import '../widgets/phone_input.dart';
+import '../widgets/package_photo.dart';
 import '../theme.dart';
 
 class NewPackageScreen extends StatefulWidget {
@@ -27,6 +28,7 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
   final _receiverPhoneController = TextEditingController();
 
   String? _photoPath;
+  XFile? _photoFile;
   Customer? _selectedCustomer;
   String? _selectedPresetItem;
   SeaItemType? _selectedSeaItem;
@@ -84,7 +86,10 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
         imageQuality: 80,
       );
       if (image != null) {
-        setState(() => _photoPath = image.path);
+        setState(() {
+          _photoPath = image.path;
+          _photoFile = image;
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -253,8 +258,11 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
-                  child: const Icon(Icons.photo,
-                      size: 64, color: AppColors.textSecondary),
+                  child: PackagePhoto(
+                    photoPath: _photoPath,
+                    height: 200,
+                    width: double.infinity,
+                  ),
                 ),
               ),
               Positioned(
@@ -265,7 +273,10 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
                   radius: 16,
                   child: IconButton(
                     icon: const Icon(Icons.close, size: 14, color: Colors.white),
-                    onPressed: () => setState(() => _photoPath = null),
+                    onPressed: () => setState(() {
+                      _photoPath = null;
+                      _photoFile = null;
+                    }),
                     padding: EdgeInsets.zero,
                   ),
                 ),
@@ -1059,7 +1070,19 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
           : null,
     );
 
-    await context.read<AppProvider>().addPackage(pkg);
+    // Read the captured image bytes (works on web + mobile) so the provider
+    // can upload them to cloud storage. A read error just drops the photo.
+    Uint8List? photoBytes;
+    if (_photoFile != null) {
+      try {
+        photoBytes = await _photoFile!.readAsBytes();
+      } catch (e) {
+        photoBytes = null;
+      }
+    }
+    if (!mounted) return;
+    final provider = context.read<AppProvider>();
+    await provider.addPackage(pkg, photoBytes: photoBytes);
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1068,6 +1091,11 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
         backgroundColor: AppColors.success,
       ),
     );
+    if (provider.photoWasDropped) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(provider.l10n.t('photoNeedsConnection'))),
+      );
+    }
 
     Navigator.pop(context);
   }

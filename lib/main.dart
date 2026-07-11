@@ -9,7 +9,25 @@ import 'screens/settings_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/auth_screen.dart';
 import 'screens/business_setup_screen.dart';
+import 'screens/public_tracking_screen.dart';
 import 'theme.dart';
+
+/// A tracking token passed in the receipt link (`?t=<uuid>`), if any. Read
+/// once from the launch URL; when present the app shows the public tracking
+/// page instead of the auth-gated app.
+String? _trackingTokenFromUrl() {
+  final q = Uri.base.queryParameters['t'];
+  if (q != null && q.trim().isNotEmpty) return q.trim();
+  // Fallback for hash-strategy URLs (…/#/?t=…): parse the fragment's query
+  // string by key so we can't false-match a param whose name ends in 't'.
+  final fragment = Uri.base.fragment;
+  final qIndex = fragment.indexOf('?');
+  if (qIndex >= 0) {
+    final t = Uri.splitQueryString(fragment.substring(qIndex + 1))['t'];
+    if (t != null && t.trim().isNotEmpty) return t.trim();
+  }
+  return null;
+}
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,9 +47,16 @@ class ShippingHubApp extends StatelessWidget {
             title: 'Shipping Hub',
             debugShowCheckedModeBanner: false,
             theme: buildAppTheme(),
+            darkTheme: buildDarkTheme(),
+            // Pinned to light until screens read colors from context.semantic
+            // instead of the static (light) AppColors; then switch to
+            // ThemeMode.system to enable dark mode. See theme.dart.
+            themeMode: ThemeMode.light,
             home: provider.isLoading
                 ? const _SplashScreen()
-                : const _AppRouter(),
+                : (_trackingTokenFromUrl() != null
+                    ? PublicTrackingScreen(token: _trackingTokenFromUrl()!)
+                    : const _AppRouter()),
           );
         },
       ),

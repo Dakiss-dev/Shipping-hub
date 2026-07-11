@@ -86,9 +86,12 @@ CREATE TABLE IF NOT EXISTS packages (
   customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
   shipment_id UUID NOT NULL REFERENCES shipments(id) ON DELETE CASCADE,
   reference_number TEXT NOT NULL,
-  -- Unguessable capability for the Plan 4 public tracking page. Never
-  -- exposed through an anon-readable view; lookups go through a
-  -- rate-limited Edge Function.
+  -- Unguessable capability for the public tracking page. Never exposed
+  -- through an anon-readable view; lookups go through the token-gated
+  -- SECURITY DEFINER function public.track_package (see supabase/tracking.sql),
+  -- which returns only safe status fields. The 122-bit random token makes
+  -- guessing infeasible; add endpoint throttling later only if abuse/cost is
+  -- a concern.
   tracking_token UUID NOT NULL DEFAULT uuid_generate_v4() UNIQUE,
   shipment_type TEXT NOT NULL CHECK (shipment_type IN ('air', 'sea')),
   photo_url TEXT,

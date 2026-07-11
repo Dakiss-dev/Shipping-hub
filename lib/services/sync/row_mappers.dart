@@ -82,8 +82,14 @@ Map<String, dynamic> packageToRow(ShippingPackage p, String operatorId) => {
       'customer_id': p.customerId,
       'shipment_id': p.shipmentId,
       'reference_number': p.referenceNumber,
+      'tracking_token': p.trackingToken,
       'shipment_type': p.shipmentType.name,
-      'photo_url': p.photoPath,
+      // Only ever push a real storage URL to the cloud. A device-local path or
+      // web blob URL is meaningless on other devices, so it must never reach
+      // the photo_url column (defense-in-depth alongside AppProvider.addPackage).
+      'photo_url': (p.photoPath != null && p.photoPath!.startsWith('http'))
+          ? p.photoPath
+          : null,
       'description': p.description,
       'weight_kg': p.weightKg,
       'sea_item_type': p.seaItemType?.name,
@@ -103,6 +109,7 @@ Map<String, dynamic> packageToRow(ShippingPackage p, String operatorId) => {
 ShippingPackage packageFromRow(Map<String, dynamic> row) => ShippingPackage(
       id: row['id'] as String,
       referenceNumber: row['reference_number'] as String,
+      trackingToken: row['tracking_token'] as String?,
       customerId: row['customer_id'] as String,
       shipmentId: row['shipment_id'] as String,
       shipmentType: ShipmentType.values

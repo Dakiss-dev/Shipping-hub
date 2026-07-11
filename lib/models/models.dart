@@ -160,6 +160,10 @@ class SeaPricingConfig {
 class ShippingPackage {
   final String id;
   String referenceNumber;
+  // Unguessable capability for the public tracking page. Generated client-side
+  // (a v4 UUID is equally unguessable to the server default) so the tracking
+  // link can go on the receipt immediately, before the row ever syncs.
+  final String trackingToken;
   final String customerId;
   final String shipmentId;
   final ShipmentType shipmentType;
@@ -182,6 +186,7 @@ class ShippingPackage {
   ShippingPackage({
     String? id,
     String? referenceNumber,
+    String? trackingToken,
     required this.customerId,
     required this.shipmentId,
     required this.shipmentType,
@@ -201,6 +206,7 @@ class ShippingPackage {
     this.receiverPhoneCountryCode,
   })  : id = id ?? _uuid.v4(),
         referenceNumber = referenceNumber ?? _generateRefNumber(),
+        trackingToken = trackingToken ?? _uuid.v4(),
         createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? createdAt ?? DateTime.now();
 
@@ -238,6 +244,7 @@ class ShippingPackage {
   Map<String, dynamic> toJson() => {
         'id': id,
         'referenceNumber': referenceNumber,
+        'trackingToken': trackingToken,
         'customerId': customerId,
         'shipmentId': shipmentId,
         'shipmentType': shipmentType.name,
@@ -262,6 +269,7 @@ class ShippingPackage {
     return ShippingPackage(
       id: json['id'] as String,
       referenceNumber: json['referenceNumber'] as String,
+      trackingToken: json['trackingToken'] as String?,
       customerId: json['customerId'] as String,
       shipmentId: json['shipmentId'] as String,
       shipmentType: ShipmentType.values

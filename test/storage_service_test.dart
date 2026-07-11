@@ -21,6 +21,28 @@ void main() {
     await Hive.close();
   });
 
+  test('legacy package without a tracking token gets a stable one', () async {
+    // Simulate a pre-trackingToken record persisted directly to the box.
+    final legacy = ShippingPackage(
+      id: 'p-legacy',
+      customerId: 'c1',
+      shipmentId: 's1',
+      shipmentType: ShipmentType.air,
+      price: 10,
+    ).toJson()
+      ..remove('trackingToken');
+    await Hive.box('local_packages').put('p-legacy', legacy);
+
+    // Re-open the namespace to trigger the one-time backfill.
+    await storage.switchNamespace('other');
+    await storage.switchNamespace('local');
+
+    final t1 = storage.getPackage('p-legacy')!.trackingToken;
+    final t2 = storage.getPackage('p-legacy')!.trackingToken;
+    expect(t1, isNotEmpty);
+    expect(t1, t2); // stable across reads (persisted), not re-minted
+  });
+
   test('tombstoned records are hidden from list getters', () async {
     final live = Customer(name: 'Live', phone: '1');
     final dead = Customer(name: 'Dead', phone: '2')

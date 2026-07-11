@@ -51,6 +51,23 @@ class StorageService {
       await Hive.openBox(_name(base));
     }
     await _migrateLegacyBoxes();
+    await _backfillTrackingTokens();
+  }
+
+  /// One-time backfill: packages stored before trackingToken existed have no
+  /// token in their JSON. fromJson would mint a fresh one on every read, so a
+  /// tracking link would be unstable. Persist a token once here so it stays
+  /// fixed for the life of the package.
+  Future<void> _backfillTrackingTokens() async {
+    final box = _packagesBox;
+    for (final key in box.keys.toList()) {
+      final raw = box.get(key);
+      if (raw is Map && raw['trackingToken'] == null) {
+        final pkg =
+            ShippingPackage.fromJson(Map<String, dynamic>.from(raw));
+        await box.put(key, pkg.toJson());
+      }
+    }
   }
 
   /// One-time migration: pre-namespacing installs stored data in bare boxes
