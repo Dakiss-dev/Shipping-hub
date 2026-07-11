@@ -644,11 +644,12 @@ class AppProvider extends ChangeNotifier {
     buffer.writeln(
         'Please keep this reference number for pickup. We will notify you when the package arrives.');
     buffer.writeln('');
-    final trackUrl =
-        '${SupabaseConfig.trackingBaseUrl(Uri.base)}/?t=${pkg.trackingToken}';
-    buffer.writeln('Track your package:');
-    buffer.writeln(trackUrl);
-    buffer.writeln('');
+    final base = SupabaseConfig.trackingBaseUrl(Uri.base);
+    if (base.isNotEmpty) {
+      buffer.writeln('Track your package:');
+      buffer.writeln('$base/?t=${pkg.trackingToken}');
+      buffer.writeln('');
+    }
     buffer.writeln(_operatorName);
 
     return buffer.toString();

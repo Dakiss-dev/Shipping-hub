@@ -7,6 +7,14 @@
 -- a single package identified by its unguessable tracking_token. No payment
 -- status, no receiver PII, no phone numbers, and no way to enumerate — the
 -- caller must already hold the exact UUID token (from their receipt link).
+--
+-- photo_url is intentionally NOT returned: a package photo can capture a
+-- shipping label bearing the receiver's name/address, which would leak the
+-- very PII this function withholds. Photos stay operator-only.
+
+-- DROP first: the return-column set changed (photo_url removed), which
+-- CREATE OR REPLACE cannot do in place.
+DROP FUNCTION IF EXISTS public.track_package(UUID);
 
 CREATE OR REPLACE FUNCTION public.track_package(p_token UUID)
 RETURNS TABLE (
@@ -17,7 +25,6 @@ RETURNS TABLE (
   departure_date TIMESTAMPTZ,
   estimated_arrival TIMESTAMPTZ,
   operator_name TEXT,
-  photo_url TEXT,
   created_at TIMESTAMPTZ
 )
 LANGUAGE sql
@@ -32,7 +39,6 @@ AS $$
     s.departure_date,
     s.estimated_arrival,
     o.business_name AS operator_name,
-    p.photo_url,
     p.created_at
   FROM packages p
   JOIN shipments s ON s.id = p.shipment_id

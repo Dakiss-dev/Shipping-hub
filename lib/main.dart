@@ -18,9 +18,15 @@ import 'theme.dart';
 String? _trackingTokenFromUrl() {
   final q = Uri.base.queryParameters['t'];
   if (q != null && q.trim().isNotEmpty) return q.trim();
-  final match =
-      RegExp(r't=([0-9a-fA-F-]{36})').firstMatch(Uri.base.fragment);
-  return match?.group(1);
+  // Fallback for hash-strategy URLs (…/#/?t=…): parse the fragment's query
+  // string by key so we can't false-match a param whose name ends in 't'.
+  final fragment = Uri.base.fragment;
+  final qIndex = fragment.indexOf('?');
+  if (qIndex >= 0) {
+    final t = Uri.splitQueryString(fragment.substring(qIndex + 1))['t'];
+    if (t != null && t.trim().isNotEmpty) return t.trim();
+  }
+  return null;
 }
 
 void main() {

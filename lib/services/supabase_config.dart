@@ -23,6 +23,14 @@ class SupabaseConfig {
   static const String _trackingBaseUrl =
       String.fromEnvironment('TRACKING_BASE_URL');
 
-  static String trackingBaseUrl(Uri appBase) =>
-      _trackingBaseUrl.isNotEmpty ? _trackingBaseUrl : appBase.origin;
+  /// Returns the tracking base, or '' when none is available. On non-web
+  /// builds `appBase` is a `file:///` URI whose `.origin` THROWS, so we only
+  /// fall back to it for http(s). Callers must omit the link when this is ''.
+  static String trackingBaseUrl(Uri appBase) {
+    if (_trackingBaseUrl.isNotEmpty) return _trackingBaseUrl;
+    if (appBase.isScheme('http') || appBase.isScheme('https')) {
+      return appBase.origin;
+    }
+    return '';
+  }
 }

@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/supabase_service.dart';
 import '../theme.dart';
-import '../widgets/package_photo.dart';
 
 /// Public, no-auth package tracking page reached via a receipt link
 /// (`?t=<tracking_token>`). Shows a clean, branded status timeline sourced
@@ -148,7 +147,6 @@ class _TrackingBody extends StatelessWidget {
     final destination = (data['destination'] ?? '').toString();
     final type = (data['shipment_type'] ?? '').toString();
     final status = (data['status'] ?? 'open').toString();
-    final photoUrl = data['photo_url']?.toString();
     final departure = _date('departure_date');
     final eta = _date('estimated_arrival');
 
@@ -228,14 +226,6 @@ class _TrackingBody extends StatelessWidget {
                             child: _DateChip(
                                 label: 'Est. arrival', value: _fmt(eta))),
                     ],
-                  ),
-                ],
-                if (photoUrl != null && photoUrl.startsWith('http')) ...[
-                  const SizedBox(height: AppSpacing.xl),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(AppRadius.lg),
-                    child: PackagePhoto(
-                        photoPath: photoUrl, height: 180, width: double.infinity),
                   ),
                 ],
               ],
