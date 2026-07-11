@@ -7,6 +7,7 @@ import '../models/models.dart';
 import '../models/country_codes.dart';
 import '../services/contact_service.dart';
 import '../widgets/phone_input.dart';
+import '../widgets/package_photo.dart';
 import '../theme.dart';
 
 class NewPackageScreen extends StatefulWidget {
@@ -253,8 +254,11 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
-                  child: const Icon(Icons.photo,
-                      size: 64, color: AppColors.textSecondary),
+                  child: PackagePhoto(
+                    photoPath: _photoPath,
+                    height: 200,
+                    width: double.infinity,
+                  ),
                 ),
               ),
               Positioned(
