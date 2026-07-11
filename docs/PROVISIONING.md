@@ -1,13 +1,19 @@
 # Shipping Hub: Backend Provisioning Handoff
 
-**Status:** deferred by decision on 2026-07-10. All app code and the schema are
-done and committed on `feature/freemium-flagship`; the app runs today in
-offline/local mode with no backend. This doc is the recipe for standing up the
-live backend when you want the hosted demo (e.g. closer to the Oct 1 launch).
+**Status: PROVISIONED (2026-07-10).** Schema v2 is applied and verified on the
+live **Shipping hub** project (`bpoxslfllffldidoaoka`) in the **Dakiss' Org**
+Supabase account (the second account — Eau Shalom + Shipping Hub — NOT the
+Dakiss-Media business account). The DB had the empty v1 tables from the Feb MVP
+(0 rows); they were dropped and replaced with a pristine v2. `env.json` (local,
+gitignored) points the app at this backend. Verified live: anon reads denied
+(42501), the insecure tracking view is gone, auth health 200.
 
-**Why deferred:** the Dakiss-Media Supabase org's two free project slots are
-used, so a dedicated third project is **$10/month**. Not worth paying months
-before launch when the app already demos locally.
+The `$10/mo dedicated-project` question is moot — this reused an existing free
+project. The sections below are kept as the recipe for any future re-provision.
+
+**Open item:** email confirmation is currently **ON** (Supabase default). See
+the app's verify-email flow — it works on web; for frictionless demo signups,
+turn it off in Authentication > Sign In / Providers.
 
 ## Option A — dedicated project (clean, $10/mo)
 
