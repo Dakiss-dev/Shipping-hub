@@ -28,6 +28,7 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
   final _receiverPhoneController = TextEditingController();
 
   String? _photoPath;
+  XFile? _photoFile;
   Customer? _selectedCustomer;
   String? _selectedPresetItem;
   SeaItemType? _selectedSeaItem;
@@ -85,7 +86,10 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
         imageQuality: 80,
       );
       if (image != null) {
-        setState(() => _photoPath = image.path);
+        setState(() {
+          _photoPath = image.path;
+          _photoFile = image;
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -269,7 +273,10 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
                   radius: 16,
                   child: IconButton(
                     icon: const Icon(Icons.close, size: 14, color: Colors.white),
-                    onPressed: () => setState(() => _photoPath = null),
+                    onPressed: () => setState(() {
+                      _photoPath = null;
+                      _photoFile = null;
+                    }),
                     padding: EdgeInsets.zero,
                   ),
                 ),
@@ -1063,7 +1070,11 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
           : null,
     );
 
-    await context.read<AppProvider>().addPackage(pkg);
+    // Read the captured image bytes (works on web + mobile) so the provider
+    // can upload them to cloud storage.
+    final photoBytes = _photoFile != null ? await _photoFile!.readAsBytes() : null;
+    if (!mounted) return;
+    await context.read<AppProvider>().addPackage(pkg, photoBytes: photoBytes);
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(

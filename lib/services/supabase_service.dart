@@ -224,4 +224,24 @@ class SupabaseService {
         .eq('id', currentUserId!);
   }
 
+  // ==================== STORAGE ====================
+
+  /// Uploads a package photo to the `package-photos` bucket under the
+  /// operator's own folder (`{operatorId}/{packageId}.jpg`) and returns the
+  /// public URL. `uploadBinary` works on both web and mobile. Throws on
+  /// failure so the caller can fall back to the local path.
+  Future<String> uploadPackagePhoto({
+    required String operatorId,
+    required String packageId,
+    required Uint8List bytes,
+  }) async {
+    final path = '$operatorId/$packageId.jpg';
+    await _client!.storage.from('package-photos').uploadBinary(
+          path,
+          bytes,
+          fileOptions:
+              const FileOptions(contentType: 'image/jpeg', upsert: true),
+        );
+    return _client!.storage.from('package-photos').getPublicUrl(path);
+  }
 }

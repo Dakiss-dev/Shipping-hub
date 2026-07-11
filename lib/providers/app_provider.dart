@@ -376,7 +376,8 @@ class AppProvider extends ChangeNotifier {
     return _packages.where((p) => p.shipmentId == shipmentId).toList();
   }
 
-  Future<void> addPackage(ShippingPackage package) async {
+  Future<void> addPackage(ShippingPackage package,
+      {Uint8List? photoBytes}) async {
     final existingRefs = {
       for (final p in _packages)
         if (p.id != package.id) p.referenceNumber,
@@ -386,6 +387,20 @@ class AppProvider extends ChangeNotifier {
     if (!unique && kDebugMode) {
       debugPrint(
           '[Packages] Reference collision persisted after retries: ${package.referenceNumber}');
+    }
+    // Upload the photo to cloud storage so it survives across devices and can
+    // appear on the customer tracking page. On failure (offline, etc.) we keep
+    // the local path — the photo still shows on this device.
+    if (photoBytes != null && _supabase.isAuthenticated) {
+      try {
+        package.photoPath = await _supabase.uploadPackagePhoto(
+          operatorId: _supabase.currentUserId!,
+          packageId: package.id,
+          bytes: photoBytes,
+        );
+      } catch (e) {
+        if (kDebugMode) debugPrint('[Packages] Photo upload failed: $e');
+      }
     }
     await _sync.savePackage(package);
     _packages = _storage.getPackages();
