@@ -3,11 +3,32 @@ import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
 import '../models/models.dart';
 import '../theme.dart';
+import '../widgets/upgrade_sheet.dart';
 import 'shipment_detail_screen.dart';
 import 'new_shipment_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
+
+  /// Opens the new-shipment form, or the upgrade sheet when a free operator is
+  /// already at the active-shipment cap.
+  void _startNewShipment(
+      BuildContext context, AppProvider provider, ShipmentType type) {
+    if (!provider.canAddShipment) {
+      showUpgradeSheet(
+        context,
+        reason:
+            "You've reached the free plan's ${AppProvider.freeActiveShipmentLimit}-shipment limit. Upgrade for unlimited shipments.",
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => NewShipmentScreen(preselectedType: type),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -245,13 +266,8 @@ class DashboardScreen extends StatelessWidget {
               subtitle: '✈️ ${provider.l10n.t('airShipment')}',
               color: AppColors.airText,
               bgColor: AppColors.airBg,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      NewShipmentScreen(preselectedType: ShipmentType.air),
-                ),
-              ),
+              onTap: () =>
+                  _startNewShipment(context, provider, ShipmentType.air),
             ),
           ),
           const SizedBox(width: 12),
@@ -263,13 +279,8 @@ class DashboardScreen extends StatelessWidget {
               subtitle: '🚢 ${provider.l10n.t('seaShipment')}',
               color: AppColors.seaText,
               bgColor: AppColors.seaBg,
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) =>
-                      NewShipmentScreen(preselectedType: ShipmentType.sea),
-                ),
-              ),
+              onTap: () =>
+                  _startNewShipment(context, provider, ShipmentType.sea),
             ),
           ),
         ],

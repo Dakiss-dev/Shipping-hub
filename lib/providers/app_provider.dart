@@ -26,6 +26,11 @@ class AppProvider extends ChangeNotifier {
   String _currency = 'USD';
   bool _isLoading = true;
   bool _isSyncing = false;
+  bool _isPro = false;
+
+  /// Free plan: at most this many active (open/closed) shipments. Enforced
+  /// server-side (supabase/entitlements.sql); mirrored here for the UX.
+  static const int freeActiveShipmentLimit = 3;
 
   // Getters
   List<Customer> get customers => _customers;
@@ -62,6 +67,25 @@ class AppProvider extends ChangeNotifier {
           s.status == ShipmentStatus.delivered)
       .toList();
 
+  // ==================== ENTITLEMENTS ====================
+
+  bool get isPro => _isPro;
+
+  /// Free operators can create shipments until they hit the active-shipment
+  /// cap; Pro is unlimited. Local mirror of the server rule for a friendly
+  /// pre-check (the DB trigger is the real enforcement).
+  bool get canAddShipment =>
+      _isPro || activeShipments.length < freeActiveShipmentLimit;
+
+  Future<void> _pullSubscription() async {
+    try {
+      _isPro = await _supabase.isProPlan();
+      await _storage.setIsPro(_isPro);
+    } catch (_) {
+      // Non-fatal — keep the cached value.
+    }
+  }
+
   // ==================== INIT ====================
 
   Future<void> init() async {
@@ -96,9 +120,10 @@ class AppProvider extends ChangeNotifier {
     _isLoading = false;
     notifyListeners();
 
-    // If already authenticated, do a background sync
+    // If already authenticated, do a background sync + refresh entitlements.
     if (_supabase.isAuthenticated) {
       unawaited(_sync.fullSync());
+      unawaited(_pullSubscription().then((_) => notifyListeners()));
     }
   }
 
@@ -121,6 +146,7 @@ class AppProvider extends ChangeNotifier {
     _seaPricing = _storage.getSeaPricing();
     _operatorName = _storage.getOperatorName();
     _currency = _storage.getCurrency();
+    _isPro = _storage.getIsPro();
   }
 
   // ==================== AUTH ====================
@@ -152,6 +178,7 @@ class AppProvider extends ChangeNotifier {
         // Re-persist the business name into the fresh account namespace.
         await _storage.setOperatorName(bName);
         await _sync.fullSync();
+        await _pullSubscription();
         _loadAll();
         notifyListeners();
       }
@@ -175,6 +202,7 @@ class AppProvider extends ChangeNotifier {
         // Pull operator profile FIRST so business name is correct immediately
         await _pullOperatorProfile();
         await _sync.fullSync();
+        await _pullSubscription();
         _loadAll();
         notifyListeners();
       }
@@ -226,6 +254,7 @@ class AppProvider extends ChangeNotifier {
       await _quiesceSync();
       _sync.lastError = null;
       _settingsSyncError = null;
+      _isPro = false;
       await _storage.switchNamespace('local');
       _loadAll();
       notifyListeners();
@@ -296,6 +325,7 @@ class AppProvider extends ChangeNotifier {
       airPricing: _airPricing,
       seaPricing: _seaPricing,
     );
+    await _pullSubscription();
     _loadAll();
     notifyListeners();
   }
@@ -645,12 +675,17 @@ class AppProvider extends ChangeNotifier {
         'Please keep this reference number for pickup. We will notify you when the package arrives.');
     buffer.writeln('');
     final base = SupabaseConfig.trackingBaseUrl(Uri.base);
-    if (base.isNotEmpty) {
+    // Live tracking links are a Pro feature; free receipts carry a light
+    // footer instead.
+    if (_isPro && base.isNotEmpty) {
       buffer.writeln('Track your package:');
       buffer.writeln('$base/?t=${pkg.trackingToken}');
       buffer.writeln('');
     }
     buffer.writeln(_operatorName);
+    if (!_isPro) {
+      buffer.writeln('via Shipping Hub');
+    }
 
     return buffer.toString();
   }

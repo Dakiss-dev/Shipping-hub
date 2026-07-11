@@ -198,6 +198,14 @@ class StorageService {
     await _settingsBox.put('currency', currency);
   }
 
+  /// Cached Pro-plan flag so the upgrade UX is correct offline / on first
+  /// paint before the subscription refresh completes.
+  bool getIsPro() => _settingsBox.get('isPro', defaultValue: false) as bool;
+
+  Future<void> setIsPro(bool value) async {
+    await _settingsBox.put('isPro', value);
+  }
+
   AirPricingConfig getAirPricing() {
     final data = _settingsBox.get('airPricing');
     if (data == null) return AirPricingConfig();
