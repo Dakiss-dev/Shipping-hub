@@ -245,6 +245,28 @@ class SupabaseService {
     return _client!.storage.from('package-photos').getPublicUrl(path);
   }
 
+  /// Whether the signed-in operator is on an active, non-expired Pro plan.
+  /// Reads their own subscriptions row (RLS allows self-select). Absence of a
+  /// row means free. Server triggers are the real enforcement; this only
+  /// drives the client-side upgrade UX.
+  Future<bool> isProPlan() async {
+    if (!isAuthenticated) return false;
+    final rows = await _client!
+        .from('subscriptions')
+        .select('plan,status,current_period_end')
+        .eq('operator_id', currentUserId!);
+    if (rows.isNotEmpty) {
+      final r = rows.first;
+      if (r['plan'] == 'pro' && r['status'] == 'active') {
+        final end = r['current_period_end'];
+        if (end == null) return true;
+        return DateTime.tryParse(end.toString())?.isAfter(DateTime.now()) ??
+            false;
+      }
+    }
+    return false;
+  }
+
   /// Public package tracking by unguessable token. Calls the SECURITY DEFINER
   /// `track_package` RPC, which returns only safe customer-facing fields (no
   /// payment status, no receiver PII). Returns null when the token has no

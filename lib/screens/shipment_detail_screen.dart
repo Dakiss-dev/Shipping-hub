@@ -4,6 +4,7 @@ import '../providers/app_provider.dart';
 import '../models/models.dart';
 import '../l10n/app_localizations.dart';
 import '../widgets/package_photo.dart';
+import '../widgets/upgrade_sheet.dart';
 import '../theme.dart';
 import 'new_package_screen.dart';
 import 'package_detail_screen.dart';
@@ -493,6 +494,20 @@ class ShipmentDetailScreen extends StatelessWidget {
 
   void _updateStatus(BuildContext context, AppProvider provider,
       Shipment shipment, ShipmentStatus status) {
+    // Reopening a past shipment back to active counts against the free cap;
+    // offer the upgrade sheet instead of letting the server reject it.
+    final wasActive = shipment.status == ShipmentStatus.open ||
+        shipment.status == ShipmentStatus.closed;
+    final willBeActive =
+        status == ShipmentStatus.open || status == ShipmentStatus.closed;
+    if (!wasActive && willBeActive && !provider.canAddShipment) {
+      showUpgradeSheet(
+        context,
+        reason:
+            "Reopening this shipment would exceed the free plan's ${AppProvider.freeActiveShipmentLimit}-shipment limit.",
+      );
+      return;
+    }
     shipment.status = status;
     provider.updateShipment(shipment);
   }
