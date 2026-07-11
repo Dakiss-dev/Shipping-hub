@@ -23,6 +23,14 @@ class AppLocalizations {
     'yes': {'en': 'Yes', 'fr': 'Oui'},
     'no': {'en': 'No', 'fr': 'Non'},
     'total': {'en': 'Total', 'fr': 'Total'},
+    'undo': {'en': 'Undo', 'fr': 'Annuler'},
+    'send': {'en': 'Send', 'fr': 'Envoyer'},
+    'markedPaid': {'en': 'Marked as paid', 'fr': 'Marqué comme payé'},
+    'markedUnpaid': {'en': 'Marked as unpaid', 'fr': 'Marqué comme impayé'},
+    'sentToSenderPromptReceiver': {
+      'en': 'Receipt sent to sender. Send to receiver too?',
+      'fr': "Reçu envoyé à l'expéditeur. Envoyer aussi au destinataire ?"
+    },
 
     // ============ SHIPMENTS ============
     'shipments': {'en': 'Shipments', 'fr': 'Expéditions'},

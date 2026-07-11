@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/app_provider.dart';
 import '../models/models.dart';
+import '../l10n/app_localizations.dart';
 import '../theme.dart';
 
 class PackageDetailScreen extends StatelessWidget {
@@ -105,7 +106,7 @@ class PackageDetailScreen extends StatelessWidget {
           // Payment Toggle
           Card(
             child: InkWell(
-              onTap: () => provider.togglePaymentStatus(pkg),
+              onTap: () => _togglePaymentWithUndo(context, provider, pkg, l),
               borderRadius: BorderRadius.circular(16),
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -369,15 +370,24 @@ class PackageDetailScreen extends StatelessWidget {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton.icon(
+                      // WhatsApp opens externally, so two shares can't fire
+                      // back to back. Send to the sender, then offer the
+                      // receiver as a follow-up action the operator taps when
+                      // they return to the app.
                       onPressed: () {
                         _shareViaWhatsApp(
                             context, provider, pkg, null, false);
-                        Future.delayed(const Duration(seconds: 2), () {
-                          if (pkg.receiverPhone != null) {
-                            _shareViaWhatsApp(context, provider, pkg,
-                                null, true);
-                          }
-                        });
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            duration: const Duration(seconds: 12),
+                            content: Text(l.t('sentToSenderPromptReceiver')),
+                            action: SnackBarAction(
+                              label: l.t('send'),
+                              onPressed: () => _shareViaWhatsApp(
+                                  context, provider, pkg, null, true),
+                            ),
+                          ),
+                        );
                       },
                       icon: const Icon(Icons.group, size: 18),
                       label: Text(l.t('sendToBoth')),
@@ -435,6 +445,24 @@ class PackageDetailScreen extends StatelessWidget {
       BuildContext context, AppProvider provider, ShippingPackage pkg) {
     final receipt = provider.generateReceipt(pkg);
     SharePlus.instance.share(ShareParams(text: receipt));
+  }
+
+  /// Toggle payment and offer an immediate one-tap undo. The status flips
+  /// synchronously inside togglePaymentStatus (before its await), so reading
+  /// pkg right after reflects the new state.
+  void _togglePaymentWithUndo(BuildContext context, AppProvider provider,
+      ShippingPackage pkg, AppLocalizations l) {
+    provider.togglePaymentStatus(pkg);
+    final nowPaid = pkg.paymentStatus == PaymentStatus.paid;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(nowPaid ? l.t('markedPaid') : l.t('markedUnpaid')),
+        action: SnackBarAction(
+          label: l.t('undo'),
+          onPressed: () => provider.togglePaymentStatus(pkg),
+        ),
+      ),
+    );
   }
 
   /// Build the full international receiver phone number
