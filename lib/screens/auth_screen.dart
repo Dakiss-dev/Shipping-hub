@@ -640,7 +640,7 @@ class _AuthScreenState extends State<AuthScreen>
                         AppColors.textSecondary.withValues(alpha: 0.5)),
                 const SizedBox(width: 4),
                 Text(
-                  'Secured with end-to-end encryption',
+                  'Encrypted connection. Your data stays private.',
                   style: TextStyle(
                     color:
                         AppColors.textSecondary.withValues(alpha: 0.5),
