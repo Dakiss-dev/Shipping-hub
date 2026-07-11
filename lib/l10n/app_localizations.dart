@@ -31,6 +31,11 @@ class AppLocalizations {
       'en': 'Receipt sent to sender. Send to receiver too?',
       'fr': "Reçu envoyé à l'expéditeur. Envoyer aussi au destinataire ?"
     },
+    'photoNeedsConnection': {
+      'en': 'Package saved. The photo needs a connection and was not attached.',
+      'fr':
+          "Colis enregistré. La photo nécessite une connexion et n'a pas été jointe."
+    },
 
     // ============ SHIPMENTS ============
     'shipments': {'en': 'Shipments', 'fr': 'Expéditions'},

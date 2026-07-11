@@ -244,4 +244,20 @@ class SupabaseService {
         );
     return _client!.storage.from('package-photos').getPublicUrl(path);
   }
+
+  /// Best-effort removal of a package's photo from storage when the package is
+  /// deleted, so orphaned photos don't accumulate against the storage quota.
+  /// Swallows errors (not-found, offline) — cleanup is not worth failing over.
+  Future<void> deletePackagePhoto({
+    required String operatorId,
+    required String packageId,
+  }) async {
+    try {
+      await _client!.storage
+          .from('package-photos')
+          .remove(['$operatorId/$packageId.jpg']);
+    } catch (e) {
+      if (kDebugMode) debugPrint('[Packages] Photo cleanup failed: $e');
+    }
+  }
 }

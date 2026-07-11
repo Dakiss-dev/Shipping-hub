@@ -39,8 +39,10 @@ CREATE POLICY "package_photos_delete_own"
     AND (storage.foldername(name))[1] = auth.uid()::text
   );
 
--- Public read for the bucket's objects (tracking page + cross-device display).
+-- NOTE: no public SELECT policy on storage.objects. A public bucket already
+-- serves objects at /storage/v1/object/public/... without RLS, so display and
+-- the tracking page work. A broad SELECT-to-public policy would additionally
+-- allow LISTING/enumerating every operator's photos — a privacy leak — so it
+-- is deliberately omitted. This drop makes the file idempotent against the
+-- earlier version that created it.
 DROP POLICY IF EXISTS "package_photos_public_read" ON storage.objects;
-CREATE POLICY "package_photos_public_read"
-  ON storage.objects FOR SELECT TO public
-  USING (bucket_id = 'package-photos');

@@ -1071,10 +1071,18 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
     );
 
     // Read the captured image bytes (works on web + mobile) so the provider
-    // can upload them to cloud storage.
-    final photoBytes = _photoFile != null ? await _photoFile!.readAsBytes() : null;
+    // can upload them to cloud storage. A read error just drops the photo.
+    Uint8List? photoBytes;
+    if (_photoFile != null) {
+      try {
+        photoBytes = await _photoFile!.readAsBytes();
+      } catch (e) {
+        photoBytes = null;
+      }
+    }
     if (!mounted) return;
-    await context.read<AppProvider>().addPackage(pkg, photoBytes: photoBytes);
+    final provider = context.read<AppProvider>();
+    await provider.addPackage(pkg, photoBytes: photoBytes);
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -1083,6 +1091,11 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
         backgroundColor: AppColors.success,
       ),
     );
+    if (provider.photoWasDropped) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(provider.l10n.t('photoNeedsConnection'))),
+      );
+    }
 
     Navigator.pop(context);
   }

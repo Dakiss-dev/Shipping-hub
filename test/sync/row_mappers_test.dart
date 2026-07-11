@@ -3,6 +3,27 @@ import 'package:shipping_hub/models/models.dart';
 import 'package:shipping_hub/services/sync/row_mappers.dart';
 
 void main() {
+  test('packageToRow only pushes a real storage URL as photo_url', () {
+    ShippingPackage pkg({String? photo}) => ShippingPackage(
+          customerId: 'c1',
+          shipmentId: 's1',
+          shipmentType: ShipmentType.air,
+          price: 25,
+          photoPath: photo,
+        );
+
+    // A device-local path or web blob must NOT reach the cloud column.
+    expect(packageToRow(pkg(photo: '/data/user/0/cache/img.jpg'), 'op')['photo_url'],
+        isNull);
+    expect(packageToRow(pkg(photo: 'blob:http://localhost/abc'), 'op')['photo_url'],
+        isNull);
+    expect(packageToRow(pkg(photo: null), 'op')['photo_url'], isNull);
+
+    // A real storage URL is pushed through.
+    const url = 'https://x.supabase.co/storage/v1/object/public/package-photos/op/p.jpg';
+    expect(packageToRow(pkg(photo: url), 'op')['photo_url'], url);
+  });
+
   test('customer phone country code round-trips through cloud rows', () {
     final customer = Customer(
       name: 'Awa',

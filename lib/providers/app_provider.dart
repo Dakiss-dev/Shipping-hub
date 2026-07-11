@@ -388,24 +388,41 @@ class AppProvider extends ChangeNotifier {
       debugPrint(
           '[Packages] Reference collision persisted after retries: ${package.referenceNumber}');
     }
-    // Upload the photo to cloud storage so it survives across devices and can
-    // appear on the customer tracking page. On failure (offline, etc.) we keep
-    // the local path — the photo still shows on this device.
-    if (photoBytes != null && _supabase.isAuthenticated) {
-      try {
-        package.photoPath = await _supabase.uploadPackagePhoto(
-          operatorId: _supabase.currentUserId!,
-          packageId: package.id,
-          bytes: photoBytes,
-        );
-      } catch (e) {
-        if (kDebugMode) debugPrint('[Packages] Photo upload failed: $e');
+    // Photos live in cloud storage so they survive across devices and can
+    // appear on the customer tracking page. The captured image is only kept
+    // as photoPath once it is a real storage URL — a device-local path or web
+    // blob URL is meaningless elsewhere, would be clobbered on the next sync,
+    // and would render as a broken placeholder on other devices, so if the
+    // upload can't happen (offline, signed out, or an error) we drop it and
+    // photoPathAttached stays false so the UI can tell the operator.
+    photoWasDropped = false;
+    if (photoBytes != null) {
+      if (_supabase.isAuthenticated && _sync.isOnline) {
+        try {
+          package.photoPath = await _supabase.uploadPackagePhoto(
+            operatorId: _supabase.currentUserId!,
+            packageId: package.id,
+            bytes: photoBytes,
+          );
+        } catch (e) {
+          if (kDebugMode) debugPrint('[Packages] Photo upload failed: $e');
+          package.photoPath = null;
+          photoWasDropped = true;
+        }
+      } else {
+        package.photoPath = null;
+        photoWasDropped = true;
       }
     }
     await _sync.savePackage(package);
     _packages = _storage.getPackages();
     notifyListeners();
   }
+
+  /// True when the most recent addPackage had a photo it could not upload
+  /// (offline/signed out/error) and therefore did not attach. The intake
+  /// screen reads this to warn the operator.
+  bool photoWasDropped = false;
 
   Future<void> updatePackage(ShippingPackage package) async {
     await _sync.savePackage(package);
@@ -414,6 +431,18 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> deletePackage(String id) async {
+    // Best-effort cloud photo cleanup before the row is tombstoned, so the
+    // storage object doesn't outlive the package (freemium quota hygiene).
+    final pkg = _storage.getPackage(id);
+    if (pkg != null &&
+        pkg.photoPath != null &&
+        pkg.photoPath!.startsWith('http') &&
+        _supabase.isAuthenticated) {
+      unawaited(_supabase.deletePackagePhoto(
+        operatorId: _supabase.currentUserId!,
+        packageId: id,
+      ));
+    }
     await _sync.deletePackage(id);
     _packages = _storage.getPackages();
     notifyListeners();
