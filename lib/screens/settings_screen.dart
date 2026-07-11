@@ -239,9 +239,37 @@ class SettingsScreen extends StatelessWidget {
                       subtitle: provider.pendingSyncCount > 0
                           ? Text('${provider.pendingSyncCount} changes pending',
                               style: const TextStyle(color: AppColors.warning, fontSize: 12))
-                          : const Text('All data synced', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                          : Text(
+                              provider.lastSyncedAt != null
+                                  ? 'All synced • ${_clock(provider.lastSyncedAt!)}'
+                                  : 'All data synced',
+                              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
                       onTap: provider.isSyncing ? null : () => provider.manualSync(),
                     ),
+                    if (provider.syncError != null) ...[
+                      const Divider(),
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.sync_problem,
+                            color: AppColors.danger),
+                        title: const Text('Sync issue',
+                            style: TextStyle(
+                                color: AppColors.danger,
+                                fontWeight: FontWeight.w600)),
+                        subtitle: Text(
+                          provider.syncError!,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        trailing: TextButton(
+                          onPressed: provider.isSyncing
+                              ? null
+                              : () => provider.manualSync(),
+                          child: const Text('Retry'),
+                        ),
+                      ),
+                    ],
                     const Divider(),
                     ListTile(
                       contentPadding: EdgeInsets.zero,
@@ -545,3 +573,6 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 }
+
+String _clock(DateTime t) =>
+    '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';

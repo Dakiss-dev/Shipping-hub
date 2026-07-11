@@ -1,53 +1,105 @@
 import 'package:hive_flutter/hive_flutter.dart';
 import '../models/models.dart';
 
+/// Hive-backed primary store, namespaced per account.
+///
+/// Box names are `<namespace>_customers` etc., where namespace is the
+/// Supabase user id or 'local' when signed out. Namespacing prevents one
+/// account's data (or queued sync writes) from leaking into another account
+/// on a shared device.
 class StorageService {
-  static const String _customersBox = 'customers';
-  static const String _shipmentsBox = 'shipments';
-  static const String _packagesBox = 'packages';
-  static const String _settingsBox = 'settings';
+  static const List<String> _baseBoxes = [
+    'customers',
+    'shipments',
+    'packages',
+    'settings',
+    'sync_queue',
+  ];
 
-  Future<void> init() async {
+  String _namespace = 'local';
+  String get namespace => _namespace;
+
+  String _name(String base) => '${_namespace}_$base';
+
+  Box get _customersBox => Hive.box(_name('customers'));
+  Box get _shipmentsBox => Hive.box(_name('shipments'));
+  Box get _packagesBox => Hive.box(_name('packages'));
+  Box get _settingsBox => Hive.box(_name('settings'));
+
+  /// The sync queue box for the active namespace. SyncQueue resolves this
+  /// through a getter so namespace switches apply transparently.
+  Box get syncQueueBox => Hive.box(_name('sync_queue'));
+
+  Future<void> init({String namespace = 'local'}) async {
     await Hive.initFlutter();
-    await Hive.openBox(_customersBox);
-    await Hive.openBox(_shipmentsBox);
-    await Hive.openBox(_packagesBox);
-    await Hive.openBox(_settingsBox);
+    await _openNamespace(namespace);
+  }
+
+  /// Test hook: callers must run `Hive.init` with a temp dir first.
+  Future<void> initForTest({String namespace = 'local'}) async {
+    await _openNamespace(namespace);
+  }
+
+  Future<void> switchNamespace(String namespace) async {
+    if (namespace == _namespace) return;
+    await _openNamespace(namespace);
+  }
+
+  Future<void> _openNamespace(String namespace) async {
+    _namespace = namespace;
+    for (final base in _baseBoxes) {
+      await Hive.openBox(_name(base));
+    }
+    await _migrateLegacyBoxes();
+  }
+
+  /// One-time migration: pre-namespacing installs stored data in bare boxes
+  /// ('customers', ...). Copy into the active namespace, then delete.
+  Future<void> _migrateLegacyBoxes() async {
+    for (final base in _baseBoxes) {
+      if (!await Hive.boxExists(base)) continue;
+      final legacy = await Hive.openBox(base);
+      final target = Hive.box(_name(base));
+      if (legacy.isNotEmpty && target.isEmpty) {
+        for (final key in legacy.keys) {
+          await target.put(key, legacy.get(key));
+        }
+      }
+      await legacy.deleteFromDisk();
+    }
   }
 
   // ==================== CUSTOMERS ====================
 
   List<Customer> getCustomers() {
-    final box = Hive.box(_customersBox);
-    return box.values
+    return _customersBox.values
         .map((e) => Customer.fromJson(Map<String, dynamic>.from(e as Map)))
+        .where((c) => c.deletedAt == null)
         .toList()
       ..sort((a, b) => a.name.compareTo(b.name));
   }
 
   Future<void> saveCustomer(Customer customer) async {
-    final box = Hive.box(_customersBox);
-    await box.put(customer.id, customer.toJson());
+    await _customersBox.put(customer.id, customer.toJson());
   }
 
   Future<void> deleteCustomer(String id) async {
-    final box = Hive.box(_customersBox);
-    await box.delete(id);
+    await _customersBox.delete(id);
   }
 
   Customer? getCustomer(String id) {
-    final box = Hive.box(_customersBox);
-    final data = box.get(id);
+    final data = _customersBox.get(id);
     if (data == null) return null;
-    return Customer.fromJson(Map<String, dynamic>.from(data as Map));
+    final customer = Customer.fromJson(Map<String, dynamic>.from(data as Map));
+    return customer.deletedAt == null ? customer : null;
   }
 
   // ==================== SHIPMENTS ====================
 
   List<Shipment> getShipments() {
-    final box = Hive.box(_shipmentsBox);
-    return box.values
+    return _shipmentsBox.values
         .map((e) => Shipment.fromJson(Map<String, dynamic>.from(e as Map)))
+        .where((s) => s.deletedAt == null)
         .toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
@@ -61,29 +113,27 @@ class StorageService {
   }
 
   Future<void> saveShipment(Shipment shipment) async {
-    final box = Hive.box(_shipmentsBox);
-    await box.put(shipment.id, shipment.toJson());
+    await _shipmentsBox.put(shipment.id, shipment.toJson());
   }
 
   Future<void> deleteShipment(String id) async {
-    final box = Hive.box(_shipmentsBox);
-    await box.delete(id);
+    await _shipmentsBox.delete(id);
   }
 
   Shipment? getShipment(String id) {
-    final box = Hive.box(_shipmentsBox);
-    final data = box.get(id);
+    final data = _shipmentsBox.get(id);
     if (data == null) return null;
-    return Shipment.fromJson(Map<String, dynamic>.from(data as Map));
+    final shipment = Shipment.fromJson(Map<String, dynamic>.from(data as Map));
+    return shipment.deletedAt == null ? shipment : null;
   }
 
   // ==================== PACKAGES ====================
 
   List<ShippingPackage> getPackages() {
-    final box = Hive.box(_packagesBox);
-    return box.values
+    return _packagesBox.values
         .map(
             (e) => ShippingPackage.fromJson(Map<String, dynamic>.from(e as Map)))
+        .where((p) => p.deletedAt == null)
         .toList()
       ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
@@ -93,68 +143,61 @@ class StorageService {
   }
 
   Future<void> savePackage(ShippingPackage package) async {
-    final box = Hive.box(_packagesBox);
-    await box.put(package.id, package.toJson());
+    await _packagesBox.put(package.id, package.toJson());
   }
 
   Future<void> deletePackage(String id) async {
-    final box = Hive.box(_packagesBox);
-    await box.delete(id);
+    await _packagesBox.delete(id);
+  }
+
+  ShippingPackage? getPackage(String id) {
+    final data = _packagesBox.get(id);
+    if (data == null) return null;
+    final pkg =
+        ShippingPackage.fromJson(Map<String, dynamic>.from(data as Map));
+    return pkg.deletedAt == null ? pkg : null;
   }
 
   // ==================== SETTINGS ====================
 
-  String getLanguage() {
-    final box = Hive.box(_settingsBox);
-    return box.get('language', defaultValue: 'en') as String;
-  }
+  String getLanguage() =>
+      _settingsBox.get('language', defaultValue: 'en') as String;
 
   Future<void> setLanguage(String lang) async {
-    final box = Hive.box(_settingsBox);
-    await box.put('language', lang);
+    await _settingsBox.put('language', lang);
   }
 
-  String getOperatorName() {
-    final box = Hive.box(_settingsBox);
-    return box.get('operatorName', defaultValue: 'My Shipping Business') as String;
-  }
+  String getOperatorName() => _settingsBox.get('operatorName',
+      defaultValue: 'My Shipping Business') as String;
 
   Future<void> setOperatorName(String name) async {
-    final box = Hive.box(_settingsBox);
-    await box.put('operatorName', name);
+    await _settingsBox.put('operatorName', name);
   }
 
-  String getCurrency() {
-    final box = Hive.box(_settingsBox);
-    return box.get('currency', defaultValue: 'USD') as String;
-  }
+  String getCurrency() =>
+      _settingsBox.get('currency', defaultValue: 'USD') as String;
 
   Future<void> setCurrency(String currency) async {
-    final box = Hive.box(_settingsBox);
-    await box.put('currency', currency);
+    await _settingsBox.put('currency', currency);
   }
 
   AirPricingConfig getAirPricing() {
-    final box = Hive.box(_settingsBox);
-    final data = box.get('airPricing');
+    final data = _settingsBox.get('airPricing');
     if (data == null) return AirPricingConfig();
     return AirPricingConfig.fromJson(Map<String, dynamic>.from(data as Map));
   }
 
   Future<void> setAirPricing(AirPricingConfig config) async {
-    final box = Hive.box(_settingsBox);
-    await box.put('airPricing', config.toJson());
+    await _settingsBox.put('airPricing', config.toJson());
   }
 
   SeaPricingConfig getSeaPricing() {
-    final box = Hive.box(_settingsBox);
-    final data = box.get('seaPricing');
+    final data = _settingsBox.get('seaPricing');
     if (data == null) return SeaPricingConfig();
     return SeaPricingConfig.fromJson(Map<String, dynamic>.from(data as Map));
   }
 
   Future<void> setSeaPricing(SeaPricingConfig config) async {
-    final box = Hive.box(_settingsBox);
-    await box.put('seaPricing', config.toJson());
+    await _settingsBox.put('seaPricing', config.toJson());
   }
 }

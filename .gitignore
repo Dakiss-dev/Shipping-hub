@@ -44,3 +44,6 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 *.hprof
+
+# Local Supabase credentials (anon key is public-ish, but keep the repo clean)
+env.json

@@ -1,13 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 import '../services/storage_service.dart';
-import '../services/sync_service.dart';
 import '../services/supabase_service.dart';
+import '../services/sync/supabase_backend.dart';
+import '../services/sync/sync_engine.dart';
+import '../services/sync/sync_queue.dart';
 import '../l10n/app_localizations.dart';
 
 class AppProvider extends ChangeNotifier {
   final StorageService _storage = StorageService();
-  final SyncService _sync = SyncService.instance;
+  late final SyncEngine _sync;
   final SupabaseService _supabase = SupabaseService.instance;
 
   // State
@@ -40,7 +44,11 @@ class AppProvider extends ChangeNotifier {
   bool get isSupabaseConfigured => _supabase.isConfigured;
   bool get isEmailConfirmed => _supabase.isEmailConfirmed;
   String? get currentUserEmail => _supabase.client?.auth.currentUser?.email;
-  int get pendingSyncCount => _sync.pendingSyncCount;
+  int get pendingSyncCount => _isLoading ? 0 : _sync.pendingSyncCount;
+  DateTime? get lastSyncedAt => _isLoading ? null : _sync.lastSyncedAt;
+  String? get syncError => _isLoading
+      ? null
+      : _settingsSyncError ?? _sync.lastError ?? _sync.firstQueueError;
 
   List<Shipment> get activeShipments => _shipments
       .where(
@@ -56,9 +64,18 @@ class AppProvider extends ChangeNotifier {
   // ==================== INIT ====================
 
   Future<void> init() async {
-    await _storage.init();
+    // Supabase first: the storage namespace is the signed-in user id, so we
+    // must know it before opening the account's Hive boxes.
+    await _supabase.initialize();
+    await _storage.init(namespace: _supabase.currentUserId ?? 'local');
+
+    _sync = SyncEngine(
+      _storage,
+      SupabaseBackend(() => _supabase.client),
+      SyncQueue(() => _storage.syncQueueBox),
+    );
     await _sync.init();
-    
+
     // Set up sync callbacks
     _sync.onSyncStarted = () {
       _isSyncing = true;
@@ -74,16 +91,23 @@ class AppProvider extends ChangeNotifier {
       notifyListeners();
     };
 
-    // Try to init Supabase (non-blocking)
-    await _supabase.initialize();
-    
     _loadAll();
     _isLoading = false;
     notifyListeners();
 
     // If already authenticated, do a background sync
     if (_supabase.isAuthenticated) {
-      _sync.fullSync();
+      unawaited(_sync.fullSync());
+    }
+  }
+
+  /// Waits out any in-flight sync before a namespace switch, so a background
+  /// flush/pull can't land writes into the wrong account's boxes.
+  Future<void> _quiesceSync() async {
+    var guard = 0;
+    while (_sync.isSyncing && guard < 100) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      guard++;
     }
   }
 
@@ -120,8 +144,12 @@ class AppProvider extends ChangeNotifier {
         password: password,
         businessName: bName,
       );
-      // After signup, sync local data to cloud
+      // After signup, move into this account's namespace and sync.
       if (_supabase.isAuthenticated) {
+        await _quiesceSync();
+        await _storage.switchNamespace(_supabase.currentUserId!);
+        // Re-persist the business name into the fresh account namespace.
+        await _storage.setOperatorName(bName);
         await _sync.fullSync();
         _loadAll();
         notifyListeners();
@@ -139,8 +167,10 @@ class AppProvider extends ChangeNotifier {
     if (!_supabase.isConfigured) return 'Supabase not configured';
     try {
       await _supabase.signIn(email: email, password: password);
-      // After login, pull cloud data and merge
+      // After login, move into this account's namespace, then pull + merge.
       if (_supabase.isAuthenticated) {
+        await _quiesceSync();
+        await _storage.switchNamespace(_supabase.currentUserId!);
         // Pull operator profile FIRST so business name is correct immediately
         await _pullOperatorProfile();
         await _sync.fullSync();
@@ -171,6 +201,16 @@ class AppProvider extends ChangeNotifier {
         if (profile['language'] != null) {
           await _storage.setLanguage(profile['language'] as String);
         }
+        if (profile['air_pricing'] != null) {
+          final airData =
+              Map<String, dynamic>.from(profile['air_pricing'] as Map);
+          await _storage.setAirPricing(AirPricingConfig.fromJson(airData));
+        }
+        if (profile['sea_pricing'] != null) {
+          final seaData =
+              Map<String, dynamic>.from(profile['sea_pricing'] as Map);
+          await _storage.setSeaPricing(SeaPricingConfig.fromJson(seaData));
+        }
       }
     } catch (_) {
       // Non-fatal — sync will catch it later
@@ -180,6 +220,13 @@ class AppProvider extends ChangeNotifier {
   Future<void> signOut() async {
     try {
       await _supabase.signOut();
+      // Quiesce any in-flight sync, clear stale engine error state, and drop
+      // back to the local namespace so the next account starts clean.
+      await _quiesceSync();
+      _sync.lastError = null;
+      _settingsSyncError = null;
+      await _storage.switchNamespace('local');
+      _loadAll();
       notifyListeners();
     } catch (e) {
       if (kDebugMode) debugPrint('[Auth] Sign out error: $e');
@@ -236,12 +283,48 @@ class AppProvider extends ChangeNotifier {
 
   Future<void> manualSync() async {
     if (!_supabase.isAuthenticated) return;
-    _isSyncing = true;
-    notifyListeners();
+    // The engine's onSyncStarted/Completed callbacks drive _isSyncing.
     await _sync.fullSync();
+    // Re-push profile settings (idempotent, last-write-wins) so a prior
+    // settings-sync failure is retried and its error cleared by the same
+    // "Sync issue" Retry the user tapped.
+    await _syncSettings(
+      businessName: _operatorName,
+      currency: _currency,
+      language: _l10n.languageCode,
+      airPricing: _airPricing,
+      seaPricing: _seaPricing,
+    );
     _loadAll();
-    _isSyncing = false;
     notifyListeners();
+  }
+
+  /// Settings sync is direct (not queued): last write wins is correct for
+  /// profile fields, and failures surface through _settingsSyncError.
+  String? _settingsSyncError;
+
+  Future<void> _syncSettings({
+    String? businessName,
+    String? currency,
+    String? language,
+    AirPricingConfig? airPricing,
+    SeaPricingConfig? seaPricing,
+  }) async {
+    if (!_supabase.isAuthenticated) return;
+    final data = <String, dynamic>{};
+    if (businessName != null) data['business_name'] = businessName;
+    if (currency != null) data['currency'] = currency;
+    if (language != null) data['language'] = language;
+    if (airPricing != null) data['air_pricing'] = airPricing.toJson();
+    if (seaPricing != null) data['sea_pricing'] = seaPricing.toJson();
+    if (data.isEmpty) return;
+    try {
+      await _supabase.updateOperatorProfile(data);
+      _settingsSyncError = null;
+    } catch (e) {
+      _settingsSyncError = e.toString();
+      notifyListeners();
+    }
   }
 
   // ==================== CUSTOMERS ====================
@@ -294,6 +377,16 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> addPackage(ShippingPackage package) async {
+    final existingRefs = {
+      for (final p in _packages)
+        if (p.id != package.id) p.referenceNumber,
+    };
+    final unique =
+        ShippingPackage.ensureUniqueReference(package, existingRefs);
+    if (!unique && kDebugMode) {
+      debugPrint(
+          '[Packages] Reference collision persisted after retries: ${package.referenceNumber}');
+    }
     await _sync.savePackage(package);
     _packages = _storage.getPackages();
     notifyListeners();
@@ -377,35 +470,35 @@ class AppProvider extends ChangeNotifier {
   Future<void> setLanguage(String lang) async {
     await _storage.setLanguage(lang);
     _l10n = AppLocalizations(languageCode: lang);
-    _sync.syncSettings(language: lang);
+    unawaited(_syncSettings(language: lang));
     notifyListeners();
   }
 
   Future<void> setOperatorName(String name) async {
     await _storage.setOperatorName(name);
     _operatorName = name;
-    _sync.syncSettings(businessName: name);
+    unawaited(_syncSettings(businessName: name));
     notifyListeners();
   }
 
   Future<void> setCurrency(String cur) async {
     await _storage.setCurrency(cur);
     _currency = cur;
-    _sync.syncSettings(currency: cur);
+    unawaited(_syncSettings(currency: cur));
     notifyListeners();
   }
 
   Future<void> updateAirPricing(AirPricingConfig config) async {
     await _storage.setAirPricing(config);
     _airPricing = config;
-    _sync.syncSettings(airPricing: config);
+    unawaited(_syncSettings(airPricing: config));
     notifyListeners();
   }
 
   Future<void> updateSeaPricing(SeaPricingConfig config) async {
     await _storage.setSeaPricing(config);
     _seaPricing = config;
-    _sync.syncSettings(seaPricing: config);
+    unawaited(_syncSettings(seaPricing: config));
     notifyListeners();
   }
 
