@@ -9,7 +9,19 @@ import 'screens/settings_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/auth_screen.dart';
 import 'screens/business_setup_screen.dart';
+import 'screens/public_tracking_screen.dart';
 import 'theme.dart';
+
+/// A tracking token passed in the receipt link (`?t=<uuid>`), if any. Read
+/// once from the launch URL; when present the app shows the public tracking
+/// page instead of the auth-gated app.
+String? _trackingTokenFromUrl() {
+  final q = Uri.base.queryParameters['t'];
+  if (q != null && q.trim().isNotEmpty) return q.trim();
+  final match =
+      RegExp(r't=([0-9a-fA-F-]{36})').firstMatch(Uri.base.fragment);
+  return match?.group(1);
+}
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,7 +48,9 @@ class ShippingHubApp extends StatelessWidget {
             themeMode: ThemeMode.light,
             home: provider.isLoading
                 ? const _SplashScreen()
-                : const _AppRouter(),
+                : (_trackingTokenFromUrl() != null
+                    ? PublicTrackingScreen(token: _trackingTokenFromUrl()!)
+                    : const _AppRouter()),
           );
         },
       ),

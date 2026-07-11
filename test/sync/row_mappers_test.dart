@@ -24,6 +24,18 @@ void main() {
     expect(packageToRow(pkg(photo: url), 'op')['photo_url'], url);
   });
 
+  test('tracking token round-trips through cloud rows', () {
+    final pkg = ShippingPackage(
+      customerId: 'c1',
+      shipmentId: 's1',
+      shipmentType: ShipmentType.sea,
+      price: 80,
+    );
+    final row = packageToRow(pkg, 'op');
+    expect(row['tracking_token'], pkg.trackingToken);
+    expect(packageFromRow(row).trackingToken, pkg.trackingToken);
+  });
+
   test('customer phone country code round-trips through cloud rows', () {
     final customer = Customer(
       name: 'Awa',

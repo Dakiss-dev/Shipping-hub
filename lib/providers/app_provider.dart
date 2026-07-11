@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../models/models.dart';
 import '../services/storage_service.dart';
 import '../services/supabase_service.dart';
+import '../services/supabase_config.dart';
 import '../services/sync/supabase_backend.dart';
 import '../services/sync/sync_engine.dart';
 import '../services/sync/sync_queue.dart';
@@ -642,6 +643,11 @@ class AppProvider extends ChangeNotifier {
     buffer.writeln('');
     buffer.writeln(
         'Please keep this reference number for pickup. We will notify you when the package arrives.');
+    buffer.writeln('');
+    final trackUrl =
+        '${SupabaseConfig.trackingBaseUrl(Uri.base)}/?t=${pkg.trackingToken}';
+    buffer.writeln('Track your package:');
+    buffer.writeln(trackUrl);
     buffer.writeln('');
     buffer.writeln(_operatorName);
 
