@@ -29,6 +29,11 @@ class ShippingHubApp extends StatelessWidget {
             title: 'Shipping Hub',
             debugShowCheckedModeBanner: false,
             theme: buildAppTheme(),
+            darkTheme: buildDarkTheme(),
+            // Pinned to light until screens read colors from context.semantic
+            // instead of the static (light) AppColors; then switch to
+            // ThemeMode.system to enable dark mode. See theme.dart.
+            themeMode: ThemeMode.light,
             home: provider.isLoading
                 ? const _SplashScreen()
                 : const _AppRouter(),
