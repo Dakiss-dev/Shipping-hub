@@ -21,7 +21,7 @@ class SettingsScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: [
           // Operator Info
-          _sectionTitle(l.t('operatorName')),
+          _sectionTitle(context, l.t('operatorName')),
           Card(
             child: ListTile(
               leading: const CircleAvatar(
@@ -30,7 +30,7 @@ class SettingsScreen extends StatelessWidget {
               ),
               title: Text(provider.operatorName),
               subtitle: const Text('Tap to change'),
-              trailing: const Icon(Icons.edit, color: AppColors.textSecondary),
+              trailing: Icon(Icons.edit, color: context.semantic.textSecondary),
               onTap: () => _editOperatorName(context, provider),
             ),
           ),
@@ -38,7 +38,7 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 20),
 
           // Language
-          _sectionTitle(l.t('language')),
+          _sectionTitle(context, l.t('language')),
           Card(
             child: Column(
               children: [
@@ -64,7 +64,7 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 20),
 
           // Currency
-          _sectionTitle(l.t('currency')),
+          _sectionTitle(context, l.t('currency')),
           Card(
             child: Column(
               children: [
@@ -98,7 +98,7 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 20),
 
           // Air Pricing
-          _sectionTitle(l.t('airPricing')),
+          _sectionTitle(context, l.t('airPricing')),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -110,21 +110,21 @@ class SettingsScreen extends StatelessWidget {
                     title: Text(l.t('pricePerKg')),
                     trailing: Text(
                       '${_currencySymbol(provider.currency)}${provider.airPricing.pricePerKg.toStringAsFixed(2)}/kg',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 16,
-                        color: AppColors.navy,
+                        color: context.semantic.textPrimary,
                       ),
                     ),
                     onTap: () =>
                         _editPricePerKg(context, provider, isAir: true),
                   ),
                   const Divider(),
-                  const Text(
+                  Text(
                     'Preset Items',
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
+                      color: context.semantic.textSecondary,
                       fontSize: 13,
                     ),
                   ),
@@ -136,9 +136,9 @@ class SettingsScreen extends StatelessWidget {
                       title: Text(entry.key, style: const TextStyle(fontSize: 14)),
                       trailing: Text(
                         '${_currencySymbol(provider.currency)}${entry.value.toStringAsFixed(2)}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: AppColors.navy,
+                          color: context.semantic.textPrimary,
                         ),
                       ),
                       onTap: () => _editPresetPrice(
@@ -153,7 +153,7 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 20),
 
           // Sea Pricing
-          _sectionTitle(l.t('seaPricing')),
+          _sectionTitle(context, l.t('seaPricing')),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -165,21 +165,21 @@ class SettingsScreen extends StatelessWidget {
                     title: Text('${l.t('pricePerKg')} (custom items)'),
                     trailing: Text(
                       '${_currencySymbol(provider.currency)}${provider.seaPricing.pricePerKg.toStringAsFixed(2)}/kg',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 16,
-                        color: AppColors.navy,
+                        color: context.semantic.textPrimary,
                       ),
                     ),
                     onTap: () =>
                         _editPricePerKg(context, provider, isAir: false),
                   ),
                   const Divider(),
-                  const Text(
+                  Text(
                     'Item Prices',
                     style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textSecondary,
+                      color: context.semantic.textSecondary,
                       fontSize: 13,
                     ),
                   ),
@@ -192,9 +192,9 @@ class SettingsScreen extends StatelessWidget {
                           style: const TextStyle(fontSize: 14)),
                       trailing: Text(
                         '${_currencySymbol(provider.currency)}${entry.value.toStringAsFixed(2)}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: AppColors.navy,
+                          color: context.semantic.textPrimary,
                         ),
                       ),
                       onTap: () => _editSeaItemPrice(
@@ -209,7 +209,7 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 20),
 
           // Cloud Sync & Account
-          _sectionTitle('Cloud Sync'),
+          _sectionTitle(context, 'Cloud Sync'),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -226,7 +226,7 @@ class SettingsScreen extends StatelessWidget {
                       title: const Text('Connected', style: TextStyle(fontWeight: FontWeight.w600)),
                       subtitle: Text(
                         provider.currentUserEmail ?? '',
-                        style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        style: TextStyle(fontSize: 12, color: context.semantic.textSecondary),
                       ),
                     ),
                     const Divider(),
@@ -234,7 +234,7 @@ class SettingsScreen extends StatelessWidget {
                       contentPadding: EdgeInsets.zero,
                       leading: provider.isSyncing
                           ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.sync, color: AppColors.navy),
+                          : Icon(Icons.sync, color: context.semantic.textPrimary),
                       title: Text(provider.isSyncing ? 'Syncing...' : 'Sync Now'),
                       subtitle: provider.pendingSyncCount > 0
                           ? Text('${provider.pendingSyncCount} changes pending',
@@ -243,7 +243,7 @@ class SettingsScreen extends StatelessWidget {
                               provider.lastSyncedAt != null
                                   ? 'All synced • ${_clock(provider.lastSyncedAt!)}'
                                   : 'All data synced',
-                              style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+                              style: TextStyle(fontSize: 12, color: context.semantic.textSecondary)),
                       onTap: provider.isSyncing ? null : () => provider.manualSync(),
                     ),
                     if (provider.syncError != null) ...[
@@ -296,9 +296,9 @@ class SettingsScreen extends StatelessWidget {
                         child: const Icon(Icons.cloud_off, color: AppColors.navy, size: 20),
                       ),
                       title: const Text('Offline Mode', style: TextStyle(fontWeight: FontWeight.w600)),
-                      subtitle: const Text(
+                      subtitle: Text(
                         'Sign in to sync data across devices',
-                        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                        style: TextStyle(fontSize: 12, color: context.semantic.textSecondary),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -329,7 +329,7 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 20),
 
           // About
-          _sectionTitle(l.t('aboutApp')),
+          _sectionTitle(context, l.t('aboutApp')),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -346,19 +346,19 @@ class SettingsScreen extends StatelessWidget {
                         color: AppColors.navy, size: 32),
                   ),
                   const SizedBox(height: 12),
-                  const Text(
+                  Text(
                     'Shipping Hub',
                     style: TextStyle(
                       fontWeight: FontWeight.w800,
                       fontSize: 18,
-                      color: AppColors.navy,
+                      color: context.semantic.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     'v1.0.0',
                     style: TextStyle(
-                      color: AppColors.textSecondary,
+                      color: context.semantic.textSecondary,
                       fontSize: 13,
                     ),
                   ),
@@ -366,7 +366,7 @@ class SettingsScreen extends StatelessWidget {
                   Text(
                     'Package intake & shipment management\nfor diaspora shipping operators.',
                     style: TextStyle(
-                      color: AppColors.textSecondary,
+                      color: context.semantic.textSecondary,
                       fontSize: 13,
                     ),
                     textAlign: TextAlign.center,
@@ -391,15 +391,15 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _sectionTitle(String title) {
+  Widget _sectionTitle(BuildContext context, String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontWeight: FontWeight.w700,
           fontSize: 14,
-          color: AppColors.textSecondary,
+          color: context.semantic.textSecondary,
         ),
       ),
     );

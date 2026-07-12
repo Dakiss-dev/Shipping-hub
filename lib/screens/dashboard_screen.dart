@@ -117,10 +117,10 @@ class DashboardScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
               child: Text(
                 l.t('selectShipmentType'),
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+                  color: context.semantic.textPrimary,
                 ),
               ),
             ),
@@ -134,18 +134,18 @@ class DashboardScreen extends StatelessWidget {
                 children: [
                   Text(
                     l.t('activeShipments'),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+                      color: context.semantic.textPrimary,
                     ),
                   ),
                   Text(
                     '${provider.activeShipments.length}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
-                      color: AppColors.navy,
+                      color: context.semantic.textPrimary,
                     ),
                   ),
                 ],
@@ -153,7 +153,7 @@ class DashboardScreen extends StatelessWidget {
             ),
 
             if (provider.activeShipments.isEmpty)
-              _buildEmptyState(l)
+              _buildEmptyState(context, l)
             else
               ...provider.activeShipments
                   .map((s) => _buildShipmentCard(context, s, provider, currency)),
@@ -167,7 +167,7 @@ class DashboardScreen extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
+                    color: context.semantic.textSecondary,
                   ),
                 ),
               ),
@@ -297,8 +297,8 @@ class DashboardScreen extends StatelessWidget {
               icon: Icons.flight_takeoff,
               title: provider.l10n.t('air'),
               subtitle: '✈️ ${provider.l10n.t('airShipment')}',
-              color: AppColors.airText,
-              bgColor: AppColors.airBg,
+              color: context.semantic.airText,
+              bgColor: context.semantic.airBg,
               onTap: () =>
                   _startNewShipment(context, provider, ShipmentType.air),
             ),
@@ -310,8 +310,8 @@ class DashboardScreen extends StatelessWidget {
               icon: Icons.directions_boat,
               title: provider.l10n.t('sea'),
               subtitle: '🚢 ${provider.l10n.t('seaShipment')}',
-              color: AppColors.seaText,
-              bgColor: AppColors.seaBg,
+              color: context.semantic.seaText,
+              bgColor: context.semantic.seaBg,
               onTap: () =>
                   _startNewShipment(context, provider, ShipmentType.sea),
             ),
@@ -331,7 +331,7 @@ class DashboardScreen extends StatelessWidget {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: Colors.white,
+      color: context.semantic.cardBg,
       borderRadius: BorderRadius.circular(16),
       elevation: 2,
       shadowColor: Colors.black.withValues(alpha: 0.08),
@@ -363,9 +363,9 @@ class DashboardScreen extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
-                  color: AppColors.textSecondary,
+                  color: context.semantic.textSecondary,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -405,7 +405,7 @@ class DashboardScreen extends StatelessWidget {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: isAir ? AppColors.airBg : AppColors.seaBg,
+                      color: isAir ? context.semantic.airBg : context.semantic.seaBg,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Row(
@@ -414,14 +414,14 @@ class DashboardScreen extends StatelessWidget {
                         Icon(
                           isAir ? Icons.flight : Icons.directions_boat,
                           size: 14,
-                          color: isAir ? AppColors.airText : AppColors.seaText,
+                          color: isAir ? context.semantic.airText : context.semantic.seaText,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           isAir ? 'AIR' : 'SEA',
                           style: TextStyle(
                             color:
-                                isAir ? AppColors.airText : AppColors.seaText,
+                                isAir ? context.semantic.airText : context.semantic.seaText,
                             fontWeight: FontWeight.w700,
                             fontSize: 11,
                           ),
@@ -469,33 +469,33 @@ class DashboardScreen extends StatelessWidget {
                         ),
                         Text(
                           shipment.destination,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
+                          style: TextStyle(
+                            color: context.semantic.textSecondary,
                             fontSize: 13,
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const Icon(Icons.chevron_right,
-                      color: AppColors.textSecondary),
+                  Icon(Icons.chevron_right,
+                      color: context.semantic.textSecondary),
                 ],
               ),
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
+                  color: context.semantic.scaffold,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _miniStat('📦', '${packages.length}', 'Packages'),
-                    _miniStat(
-                        '⚖️', '${totalWeight.toStringAsFixed(1)}kg', 'Weight'),
-                    _miniStat('💰', '$currency${totalRevenue.toStringAsFixed(0)}',
-                        'Value'),
+                    _miniStat(context, '📦', '${packages.length}', 'Packages'),
+                    _miniStat(context, '⚖️',
+                        '${totalWeight.toStringAsFixed(1)}kg', 'Weight'),
+                    _miniStat(context, '💰',
+                        '$currency${totalRevenue.toStringAsFixed(0)}', 'Value'),
                   ],
                 ),
               ),
@@ -506,18 +506,23 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _miniStat(String emoji, String value, String label) {
+  Widget _miniStat(
+      BuildContext context, String emoji, String value, String label) {
     return Column(
       children: [
         Text(emoji, style: const TextStyle(fontSize: 16)),
         const SizedBox(height: 2),
         Text(
           value,
-          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+          style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 14,
+              color: context.semantic.textPrimary),
         ),
         Text(
           label,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 10),
+          style: TextStyle(
+              color: context.semantic.textSecondary, fontSize: 10),
         ),
       ],
     );
@@ -562,14 +567,14 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildEmptyState(l10n) {
+  Widget _buildEmptyState(BuildContext context, l10n) {
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.semantic.cardBg,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: context.semantic.border),
       ),
       child: Column(
         children: [
@@ -588,10 +593,10 @@ class DashboardScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 20),
-          const Text(
+          Text(
             'Ready to ship!',
             style: TextStyle(
-              color: AppColors.textPrimary,
+              color: context.semantic.textPrimary,
               fontSize: 18,
               fontWeight: FontWeight.w700,
             ),
@@ -601,22 +606,22 @@ class DashboardScreen extends StatelessWidget {
             'Create your first Air or Sea shipment above\nto start tracking packages and customers.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: AppColors.textSecondary,
+              color: context.semantic.textSecondary,
               fontSize: 13,
               height: 1.5,
             ),
           ),
           const SizedBox(height: 20),
           // Quick guide steps
-          _guideStep('1', 'Create a shipment (Air or Sea)'),
-          _guideStep('2', 'Add packages for your customers'),
-          _guideStep('3', 'Share receipts via WhatsApp'),
+          _guideStep(context, '1', 'Create a shipment (Air or Sea)'),
+          _guideStep(context, '2', 'Add packages for your customers'),
+          _guideStep(context, '3', 'Share receipts via WhatsApp'),
         ],
       ),
     );
   }
 
-  Widget _guideStep(String number, String text) {
+  Widget _guideStep(BuildContext context, String number, String text) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -631,19 +636,19 @@ class DashboardScreen extends StatelessWidget {
             alignment: Alignment.center,
             child: Text(
               number,
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 13,
-                color: AppColors.navy,
+                color: context.semantic.textPrimary,
               ),
             ),
           ),
           const SizedBox(width: 12),
           Text(
             text,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 13,
-              color: AppColors.textSecondary,
+              color: context.semantic.textSecondary,
             ),
           ),
         ],
