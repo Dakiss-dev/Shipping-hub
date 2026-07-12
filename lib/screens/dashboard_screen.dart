@@ -6,6 +6,7 @@ import '../theme.dart';
 import '../widgets/upgrade_sheet.dart';
 import 'shipment_detail_screen.dart';
 import 'new_shipment_screen.dart';
+import 'analytics_screen.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -27,6 +28,22 @@ class DashboardScreen extends StatelessWidget {
       MaterialPageRoute(
         builder: (_) => NewShipmentScreen(preselectedType: type),
       ),
+    );
+  }
+
+  /// Opens the Pro analytics dashboard, or the upgrade sheet for free operators.
+  void _openAnalytics(BuildContext context, AppProvider provider) {
+    if (!provider.isPro) {
+      showUpgradeSheet(
+        context,
+        reason: 'Revenue analytics is a Pro feature. Upgrade to see what your '
+            'business is earning.',
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AnalyticsScreen()),
     );
   }
 
@@ -55,6 +72,22 @@ class DashboardScreen extends StatelessWidget {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Analytics',
+            icon: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                const Icon(Icons.insights_rounded, color: AppColors.gold),
+                if (!provider.isPro)
+                  const Positioned(
+                    right: -2,
+                    top: -2,
+                    child: Icon(Icons.lock, size: 11, color: AppColors.gold),
+                  ),
+              ],
+            ),
+            onPressed: () => _openAnalytics(context, provider),
+          ),
           Container(
             margin: const EdgeInsets.only(right: 8),
             child: TextButton.icon(
