@@ -48,10 +48,9 @@ class ShippingHubApp extends StatelessWidget {
             debugShowCheckedModeBanner: false,
             theme: buildAppTheme(),
             darkTheme: buildDarkTheme(),
-            // Pinned to light until screens read colors from context.semantic
-            // instead of the static (light) AppColors; then switch to
-            // ThemeMode.system to enable dark mode. See theme.dart.
-            themeMode: ThemeMode.light,
+            // Screens read adaptive colors via context.semantic, so the app
+            // follows the device light/dark setting.
+            themeMode: ThemeMode.system,
             home: provider.isLoading
                 ? const _SplashScreen()
                 : (_trackingTokenFromUrl() != null

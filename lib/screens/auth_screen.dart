@@ -387,7 +387,7 @@ class _AuthScreenState extends State<AuthScreen>
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.semantic.cardBg,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
@@ -444,7 +444,7 @@ class _AuthScreenState extends State<AuthScreen>
                   _obscurePassword
                       ? Icons.visibility_off_rounded
                       : Icons.visibility_rounded,
-                  color: AppColors.textSecondary,
+                  color: context.semantic.textSecondary,
                   size: 20,
                 ),
                 onPressed: () =>
@@ -476,10 +476,10 @@ class _AuthScreenState extends State<AuthScreen>
                 alignment: Alignment.centerRight,
                 child: GestureDetector(
                   onTap: _forgotPassword,
-                  child: const Text(
+                  child: Text(
                     'Forgot password?',
                     style: TextStyle(
-                      color: AppColors.navy,
+                      color: context.semantic.textPrimary,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -567,7 +567,7 @@ class _AuthScreenState extends State<AuthScreen>
                   child: Text(
                     'or',
                     style: TextStyle(
-                      color: AppColors.textSecondary,
+                      color: context.semantic.textSecondary,
                       fontSize: 13,
                     ),
                   ),
@@ -583,12 +583,12 @@ class _AuthScreenState extends State<AuthScreen>
               child: OutlinedButton(
                 onPressed: _isGoogleLoading ? null : _signInWithGoogle,
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: AppColors.textPrimary,
+                  foregroundColor: context.semantic.textPrimary,
                   side: BorderSide(color: Colors.grey.shade300),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  backgroundColor: Colors.white,
+                  backgroundColor: context.semantic.cardBg,
                 ),
                 child: _isGoogleLoading
                     ? const SizedBox(
@@ -637,13 +637,13 @@ class _AuthScreenState extends State<AuthScreen>
                 Icon(Icons.lock_rounded,
                     size: 13,
                     color:
-                        AppColors.textSecondary.withValues(alpha: 0.5)),
+                        context.semantic.textSecondary.withValues(alpha: 0.5)),
                 const SizedBox(width: 4),
                 Text(
                   'Encrypted connection. Your data stays private.',
                   style: TextStyle(
                     color:
-                        AppColors.textSecondary.withValues(alpha: 0.5),
+                        context.semantic.textSecondary.withValues(alpha: 0.5),
                     fontSize: 11,
                   ),
                 ),
@@ -679,7 +679,7 @@ class _AuthScreenState extends State<AuthScreen>
         prefixIcon: Icon(icon, size: 20),
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: AppColors.surface,
+        fillColor: context.semantic.scaffold,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide.none,

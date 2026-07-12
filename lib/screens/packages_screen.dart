@@ -60,7 +60,7 @@ class _PackagesScreenState extends State<PackagesScreen> {
                 hintText: '${l.t('search')} by name or ref #...',
                 prefixIcon: const Icon(Icons.search, size: 20),
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: context.semantic.cardBg,
                 contentPadding: const EdgeInsets.symmetric(vertical: 0),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -87,8 +87,8 @@ class _PackagesScreenState extends State<PackagesScreen> {
                 const Spacer(),
                 Text(
                   '${packages.length} ${l.t('packages').toLowerCase()}',
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
+                  style: TextStyle(
+                    color: context.semantic.textSecondary,
                     fontSize: 12,
                   ),
                 ),
@@ -107,8 +107,8 @@ class _PackagesScreenState extends State<PackagesScreen> {
                         const SizedBox(height: 12),
                         Text(
                           l.t('noData'),
-                          style: const TextStyle(
-                              color: AppColors.textSecondary, fontSize: 15),
+                          style: TextStyle(
+                              color: context.semantic.textSecondary, fontSize: 15),
                         ),
                       ],
                     ),
@@ -161,10 +161,10 @@ class _PackagesScreenState extends State<PackagesScreen> {
                             children: [
                               Text(
                                 pkg.referenceNumber,
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontFamily: 'monospace',
                                   fontSize: 11,
-                                  color: AppColors.textSecondary,
+                                  color: context.semantic.textSecondary,
                                 ),
                               ),
                               if (shipment != null)
@@ -180,17 +180,17 @@ class _PackagesScreenState extends State<PackagesScreen> {
                             children: [
                               Text(
                                 '$currency${pkg.price.toStringAsFixed(2)}',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontWeight: FontWeight.w700,
                                   fontSize: 15,
-                                  color: AppColors.navy,
+                                  color: context.semantic.textPrimary,
                                 ),
                               ),
                               if (pkg.weightKg != null)
                                 Text(
                                   '${pkg.weightKg!.toStringAsFixed(1)} kg',
-                                  style: const TextStyle(
-                                    color: AppColors.textSecondary,
+                                  style: TextStyle(
+                                    color: context.semantic.textSecondary,
                                     fontSize: 11,
                                   ),
                                 ),
@@ -214,7 +214,7 @@ class _PackagesScreenState extends State<PackagesScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.navy : Colors.white,
+          color: isSelected ? AppColors.navy : context.semantic.cardBg,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected ? AppColors.navy : Colors.grey.shade300,
@@ -223,7 +223,7 @@ class _PackagesScreenState extends State<PackagesScreen> {
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? Colors.white : AppColors.textPrimary,
+            color: isSelected ? Colors.white : context.semantic.textPrimary,
             fontSize: 12,
             fontWeight: FontWeight.w600,
           ),

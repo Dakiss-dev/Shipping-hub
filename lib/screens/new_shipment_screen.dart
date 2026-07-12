@@ -72,10 +72,10 @@ class _NewShipmentScreenState extends State<NewShipmentScreen> {
             // Shipment Type Toggle
             Text(
               l.t('selectShipmentType'),
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
-                color: AppColors.textSecondary,
+                color: context.semantic.textSecondary,
               ),
             ),
             const SizedBox(height: 8),
@@ -87,8 +87,8 @@ class _NewShipmentScreenState extends State<NewShipmentScreen> {
                     label: l.t('airShipment'),
                     emoji: '✈️',
                     isSelected: _type == ShipmentType.air,
-                    color: AppColors.airText,
-                    bgColor: AppColors.airBg,
+                    color: context.semantic.airText,
+                    bgColor: context.semantic.airBg,
                     onTap: () {
                       setState(() {
                         _type = ShipmentType.air;
@@ -104,8 +104,8 @@ class _NewShipmentScreenState extends State<NewShipmentScreen> {
                     label: l.t('seaShipment'),
                     emoji: '🚢',
                     isSelected: _type == ShipmentType.sea,
-                    color: AppColors.seaText,
-                    bgColor: AppColors.seaBg,
+                    color: context.semantic.seaText,
+                    bgColor: context.semantic.seaBg,
                     onTap: () {
                       setState(() {
                         _type = ShipmentType.sea;
@@ -122,10 +122,10 @@ class _NewShipmentScreenState extends State<NewShipmentScreen> {
             // Destination
             Text(
               l.t('destination'),
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
-                color: AppColors.textSecondary,
+                color: context.semantic.textSecondary,
               ),
             ),
             const SizedBox(height: 8),
@@ -162,10 +162,10 @@ class _NewShipmentScreenState extends State<NewShipmentScreen> {
             // Shipment Name
             Text(
               l.t('shipmentName'),
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
-                color: AppColors.textSecondary,
+                color: context.semantic.textSecondary,
               ),
             ),
             const SizedBox(height: 8),
@@ -184,10 +184,10 @@ class _NewShipmentScreenState extends State<NewShipmentScreen> {
             // Departure Date
             Text(
               l.t('departureDate'),
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
-                color: AppColors.textSecondary,
+                color: context.semantic.textSecondary,
               ),
             ),
             const SizedBox(height: 8),
@@ -214,8 +214,8 @@ class _NewShipmentScreenState extends State<NewShipmentScreen> {
                       : 'Select date (optional)',
                   style: TextStyle(
                     color: _departureDate != null
-                        ? AppColors.textPrimary
-                        : AppColors.textSecondary,
+                        ? context.semantic.textPrimary
+                        : context.semantic.textSecondary,
                   ),
                 ),
               ),
@@ -226,10 +226,10 @@ class _NewShipmentScreenState extends State<NewShipmentScreen> {
             // Notes
             Text(
               l.t('notes'),
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
-                color: AppColors.textSecondary,
+                color: context.semantic.textSecondary,
               ),
             ),
             const SizedBox(height: 8),
@@ -272,7 +272,7 @@ class _NewShipmentScreenState extends State<NewShipmentScreen> {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: isSelected ? color.withValues(alpha: 0.1) : Colors.white,
+      color: isSelected ? color.withValues(alpha: 0.1) : context.semantic.cardBg,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
@@ -294,7 +294,7 @@ class _NewShipmentScreenState extends State<NewShipmentScreen> {
                 label,
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: isSelected ? color : AppColors.textSecondary,
+                  color: isSelected ? color : context.semantic.textSecondary,
                   fontSize: 13,
                 ),
                 textAlign: TextAlign.center,
