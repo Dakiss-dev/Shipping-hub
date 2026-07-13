@@ -1,0 +1,3 @@
+# Cloudflare Pages SPA fallback: serve the app shell for any route that isn't a
+# real static file, so deep links (e.g. tracking links) resolve to index.html.
+/*    /index.html    200
