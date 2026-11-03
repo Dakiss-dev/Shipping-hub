@@ -33,7 +33,7 @@ flutter run --dart-define-from-file=env.json
 
 ## Status
 
-Working MVP, built in a 6-day sprint (Feb 2026). The original demo backend has been retired; bring your own Supabase project with the included schema. Part of a trilogy of diaspora-logistics systems I've shipped, alongside [SD Express](https://sd-express.pages.dev) (customer-facing site, live) and a 4-role water-delivery ops app run daily across two continents.
+Working MVP, built in a 6-day sprint (Feb 2026). The original demo backend has been retired; bring your own Supabase project with the included schema. Part of a trilogy of diaspora-logistics systems I've built, alongside [SD Express](https://sd-express.pages.dev) (customer-facing site, live) and a water-delivery ops app run from two continents.
 
 ## License
 
