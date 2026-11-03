@@ -38,8 +38,105 @@
 
   <title>Shipping Hub</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    /* Branded boot splash — shown until Flutter paints its first frame, so the
+       app never flashes a blank screen on cold load. Navy + gold to match the
+       in-app brand. */
+    #boot-splash {
+      position: fixed;
+      inset: 0;
+      z-index: 2147483647;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #0D1B3E;
+      transition: opacity .45s ease;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    #boot-splash.hide { opacity: 0; pointer-events: none; }
+    #boot-splash .logo {
+      width: 76px; height: 76px;
+      border-radius: 18px;
+      background: #FFB300;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 40px rgba(255, 179, 0, .45);
+      animation: bootPulse 1.8s ease-in-out infinite;
+    }
+    #boot-splash .name {
+      margin-top: 20px;
+      color: #FFFFFF;
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: .3px;
+    }
+    #boot-splash .tag {
+      margin-top: 6px;
+      color: rgba(255,255,255,.55);
+      font-size: 13px;
+    }
+    #boot-splash .bar {
+      margin-top: 26px;
+      width: 150px; height: 3px;
+      border-radius: 100px;
+      background: rgba(255,255,255,.12);
+      overflow: hidden;
+    }
+    #boot-splash .bar::after {
+      content: "";
+      display: block;
+      width: 40%; height: 100%;
+      border-radius: 100px;
+      background: #FFB300;
+      animation: bootSlide 1.2s ease-in-out infinite;
+    }
+    @keyframes bootPulse {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 40px rgba(255,179,0,.45); }
+      50% { transform: scale(1.06); box-shadow: 0 0 56px rgba(255,179,0,.65); }
+    }
+    @keyframes bootSlide {
+      0% { transform: translateX(-120%); }
+      100% { transform: translateX(340%); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #boot-splash .logo, #boot-splash .bar::after { animation: none; }
+    }
+  </style>
 </head>
 <body>
+  <div id="boot-splash">
+    <div class="logo" aria-hidden="true">
+      <svg width="42" height="42" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H14a1 1 0 0 1 1 1v8H4.5A1.5 1.5 0 0 1 3 12.5v-6Z" fill="#0D1B3E"/>
+        <path d="M15 8h3.2a1 1 0 0 1 .82.43l1.8 2.6a1 1 0 0 1 .18.57V14a1 1 0 0 1-1 1H15V8Z" fill="#0D1B3E"/>
+        <circle cx="7" cy="17" r="2.1" fill="#0D1B3E"/>
+        <circle cx="17" cy="17" r="2.1" fill="#0D1B3E"/>
+      </svg>
+    </div>
+    <div class="name">Shipping Hub</div>
+    <div class="tag">Loading your workspace…</div>
+    <div class="bar" aria-hidden="true"></div>
+  </div>
+
+  <script>
+    // Remove the splash as soon as Flutter renders its first frame; fall back to
+    // a timeout so a boot error can never leave the splash stuck on screen.
+    (function () {
+      var removed = false;
+      function hideSplash() {
+        if (removed) return;
+        removed = true;
+        var s = document.getElementById('boot-splash');
+        if (!s) return;
+        s.classList.add('hide');
+        setTimeout(function () { s.remove(); }, 500);
+      }
+      window.addEventListener('flutter-first-frame', hideSplash);
+      // Safety net: never trap the user behind the splash.
+      setTimeout(hideSplash, 12000);
+    })();
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

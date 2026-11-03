@@ -24,7 +24,7 @@ class AnalyticsScreen extends StatelessWidget {
     );
 
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: context.semantic.scaffold,
       appBar: AppBar(
         title: const Text('Analytics'),
         actions: [
@@ -194,9 +194,9 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.cardBg,
+        color: context.semantic.cardBg,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
+        border: Border.all(color: context.semantic.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -206,8 +206,8 @@ class _StatCard extends StatelessWidget {
               Icon(icon, size: 16, color: color),
               const SizedBox(width: AppSpacing.xs),
               Text(label,
-                  style: const TextStyle(
-                      color: AppColors.textSecondary,
+                  style: TextStyle(
+                      color: context.semantic.textSecondary,
                       fontSize: 13,
                       fontWeight: FontWeight.w600)),
             ],
@@ -236,9 +236,9 @@ class _SectionCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.lg),
       decoration: BoxDecoration(
-        color: AppColors.cardBg,
+        color: context.semantic.cardBg,
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
+        border: Border.all(color: context.semantic.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -248,15 +248,15 @@ class _SectionCard extends StatelessWidget {
             textBaseline: TextBaseline.alphabetic,
             children: [
               Text(title,
-                  style: const TextStyle(
-                      color: AppColors.textPrimary,
+                  style: TextStyle(
+                      color: context.semantic.textPrimary,
                       fontSize: 16,
                       fontWeight: FontWeight.w700)),
               if (subtitle != null) ...[
                 const SizedBox(width: AppSpacing.sm),
                 Text(subtitle!,
-                    style: const TextStyle(
-                        color: AppColors.textSecondary, fontSize: 12)),
+                    style: TextStyle(
+                        color: context.semantic.textSecondary, fontSize: 12)),
               ],
             ],
           ),
@@ -289,8 +289,8 @@ class _TrendChart extends StatelessWidget {
                 children: [
                   Text(
                     m.total == 0 ? '' : fmtMoneyCompact(m.total, symbol),
-                    style: const TextStyle(
-                        color: AppColors.textSecondary,
+                    style: TextStyle(
+                        color: context.semantic.textSecondary,
                         fontSize: 10,
                         fontWeight: FontWeight.w600),
                   ),
@@ -311,8 +311,8 @@ class _TrendChart extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(m.shortLabel,
-                      style: const TextStyle(
-                          color: AppColors.textSecondary, fontSize: 11)),
+                      style: TextStyle(
+                          color: context.semantic.textSecondary, fontSize: 11)),
                 ],
               ),
             ),
@@ -335,14 +335,16 @@ class _TypeSplit extends StatelessWidget {
     final total = air + sea;
     return Column(
       children: [
-        _typeRow('Air', air, total, AppColors.airText, AppColors.airBg),
+        _typeRow(context, 'Air', air, total, context.semantic.airText,
+            context.semantic.airBg),
         const SizedBox(height: AppSpacing.md),
-        _typeRow('Sea', sea, total, AppColors.seaText, AppColors.seaBg),
+        _typeRow(context, 'Sea', sea, total, context.semantic.seaText,
+            context.semantic.seaBg),
       ],
     );
   }
 
-  Widget _typeRow(
+  Widget _typeRow(BuildContext context,
       String label, double value, double total, Color fg, Color bg) {
     final frac = total == 0 ? 0.0 : value / total;
     return Row(
@@ -370,8 +372,8 @@ class _TypeSplit extends StatelessWidget {
           width: 72,
           child: Text(fmtMoney(value, symbol),
               textAlign: TextAlign.right,
-              style: const TextStyle(
-                  color: AppColors.textPrimary,
+              style: TextStyle(
+                  color: context.semantic.textPrimary,
                   fontSize: 13,
                   fontWeight: FontWeight.w600)),
         ),
@@ -408,19 +410,19 @@ class _TopCustomers extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(customers[i].name,
-                        style: const TextStyle(
-                            color: AppColors.textPrimary,
+                        style: TextStyle(
+                            color: context.semantic.textPrimary,
                             fontSize: 14,
                             fontWeight: FontWeight.w600)),
                     Text('${customers[i].packageCount} packages',
-                        style: const TextStyle(
-                            color: AppColors.textSecondary, fontSize: 12)),
+                        style: TextStyle(
+                            color: context.semantic.textSecondary, fontSize: 12)),
                   ],
                 ),
               ),
               Text(fmtMoney(customers[i].total, symbol),
-                  style: const TextStyle(
-                      color: AppColors.navy,
+                  style: TextStyle(
+                      color: context.semantic.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w800)),
             ],
@@ -441,18 +443,19 @@ class _EmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.insights_rounded,
-                size: 64, color: AppColors.textSecondary.withValues(alpha: 0.4)),
+                size: 64,
+                color: context.semantic.textSecondary.withValues(alpha: 0.4)),
             const SizedBox(height: AppSpacing.lg),
-            const Text('No revenue yet',
+            Text('No revenue yet',
                 style: TextStyle(
-                    color: AppColors.textPrimary,
+                    color: context.semantic.textPrimary,
                     fontSize: 18,
                     fontWeight: FontWeight.w700)),
             const SizedBox(height: AppSpacing.sm),
-            const Text(
+            Text(
               'Add packages to your shipments and your revenue analytics will appear here.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+              style: TextStyle(color: context.semantic.textSecondary, fontSize: 14),
             ),
           ],
         ),

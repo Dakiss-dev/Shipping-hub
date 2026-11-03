@@ -149,8 +149,8 @@ class ShipmentDetailScreen extends StatelessWidget {
                                 horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
                               color: isAir
-                                  ? AppColors.airText.withValues(alpha: 0.3)
-                                  : AppColors.seaText.withValues(alpha: 0.3),
+                                  ? context.semantic.airText.withValues(alpha: 0.3)
+                                  : context.semantic.seaText.withValues(alpha: 0.3),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
@@ -245,7 +245,7 @@ class ShipmentDetailScreen extends StatelessWidget {
               margin: const EdgeInsets.all(16),
               padding: const EdgeInsets.all(32),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: context.semantic.cardBg,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: Colors.grey.shade200),
               ),
@@ -262,10 +262,10 @@ class ShipmentDetailScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     'Tap + to add your first package',
                     style:
-                        TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                        TextStyle(color: context.semantic.textSecondary, fontSize: 13),
                   ),
                   const SizedBox(height: 16),
                   if (shipment.status == ShipmentStatus.open)
@@ -346,7 +346,7 @@ class ShipmentDetailScreen extends StatelessWidget {
                 width: 56,
                 height: 56,
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
+                  color: context.semantic.scaffold,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.grey.shade200),
                 ),
@@ -377,10 +377,10 @@ class ShipmentDetailScreen extends StatelessWidget {
                         ),
                         Text(
                           '$currency${pkg.price.toStringAsFixed(2)}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.w700,
                             fontSize: 15,
-                            color: AppColors.navy,
+                            color: context.semantic.textPrimary,
                           ),
                         ),
                       ],
@@ -390,19 +390,19 @@ class ShipmentDetailScreen extends StatelessWidget {
                       children: [
                         Text(
                           pkg.referenceNumber,
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
+                          style: TextStyle(
+                            color: context.semantic.textSecondary,
                             fontSize: 11,
                             fontFamily: 'monospace',
                           ),
                         ),
                         if (pkg.weightKg != null) ...[
-                          const Text(' • ',
-                              style: TextStyle(color: AppColors.textSecondary)),
+                          Text(' • ',
+                              style: TextStyle(color: context.semantic.textSecondary)),
                           Text(
                             '${pkg.weightKg!.toStringAsFixed(1)} kg',
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
+                            style: TextStyle(
+                              color: context.semantic.textSecondary,
                               fontSize: 11,
                             ),
                           ),
@@ -456,8 +456,8 @@ class ShipmentDetailScreen extends StatelessWidget {
                           Expanded(
                             child: Text(
                               '→ ${pkg.receiverName}',
-                              style: const TextStyle(
-                                color: AppColors.navy,
+                              style: TextStyle(
+                                color: context.semantic.textPrimary,
                                 fontSize: 11,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -469,8 +469,8 @@ class ShipmentDetailScreen extends StatelessWidget {
                           Expanded(
                             child: Text(
                               pkg.description,
-                              style: const TextStyle(
-                                color: AppColors.textSecondary,
+                              style: TextStyle(
+                                color: context.semantic.textSecondary,
                                 fontSize: 11,
                               ),
                               overflow: TextOverflow.ellipsis,
@@ -483,8 +483,8 @@ class ShipmentDetailScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 4),
-              const Icon(Icons.chevron_right,
-                  color: AppColors.textSecondary, size: 20),
+              Icon(Icons.chevron_right,
+                  color: context.semantic.textSecondary, size: 20),
             ],
           ),
         ),

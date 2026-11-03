@@ -138,10 +138,10 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
             // Description
             Text(
               l.t('description'),
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 14,
-                color: AppColors.textSecondary,
+                color: context.semantic.textSecondary,
               ),
             ),
             const SizedBox(height: 8),
@@ -239,10 +239,10 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
       children: [
         Text(
           l10n.t('packagePhoto'),
-          style: const TextStyle(
+          style: TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 14,
-            color: AppColors.textSecondary,
+            color: context.semantic.textSecondary,
           ),
         ),
         const SizedBox(height: 8),
@@ -254,7 +254,7 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
                 width: double.infinity,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
-                  color: AppColors.surface,
+                  color: context.semantic.scaffold,
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
@@ -334,7 +334,7 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: Colors.white,
+      color: context.semantic.cardBg,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
@@ -351,8 +351,8 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
               const SizedBox(height: 8),
               Text(
                 label,
-                style: const TextStyle(
-                  color: AppColors.navy,
+                style: TextStyle(
+                  color: context.semantic.textPrimary,
                   fontWeight: FontWeight.w600,
                   fontSize: 12,
                 ),
@@ -372,10 +372,10 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
       children: [
         Text(
           l10n.t('selectCustomer'),
-          style: const TextStyle(
+          style: TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 14,
-            color: AppColors.textSecondary,
+            color: context.semantic.textSecondary,
           ),
         ),
         const SizedBox(height: 8),
@@ -386,7 +386,7 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
               child: _customerActionButton(
                 icon: Icons.contacts,
                 label: 'From Contacts',
-                color: AppColors.navy,
+                color: context.semantic.textPrimary,
                 onTap: () => _importFromContacts(context, provider),
               ),
             ),
@@ -440,8 +440,8 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
                       ),
                       Text(
                         _selectedCustomer!.phone,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
+                        style: TextStyle(
+                          color: context.semantic.textSecondary,
                           fontSize: 13,
                         ),
                       ),
@@ -451,7 +451,7 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
                 IconButton(
                   icon: const Icon(Icons.close, size: 18),
                   onPressed: () => setState(() => _selectedCustomer = null),
-                  color: AppColors.textSecondary,
+                  color: context.semantic.textSecondary,
                 ),
               ],
             ),
@@ -476,18 +476,18 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: context.semantic.cardBg,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.grey.shade200, style: BorderStyle.solid),
             ),
-            child: const Row(
+            child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.info_outline, color: AppColors.textSecondary, size: 16),
-                SizedBox(width: 8),
+                Icon(Icons.info_outline, color: context.semantic.textSecondary, size: 16),
+                const SizedBox(width: 8),
                 Text(
                   'Use the buttons above to add a customer',
-                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                  style: TextStyle(color: context.semantic.textSecondary, fontSize: 13),
                 ),
               ],
             ),
@@ -501,7 +501,7 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.semantic.cardBg,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.navy.withValues(alpha: 0.15)),
       ),
@@ -517,26 +517,26 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child:
-                    const Icon(Icons.person_pin_circle, color: AppColors.navy, size: 18),
+                    Icon(Icons.person_pin_circle, color: context.semantic.textPrimary, size: 18),
               ),
               const SizedBox(width: 10),
               Text(
                 l10n.t('receiver'),
-                style: const TextStyle(
+                style: TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
-                  color: AppColors.navy,
+                  color: context.semantic.textPrimary,
                 ),
               ),
               const Spacer(),
               // Import receiver from contacts too
               TextButton.icon(
                 onPressed: () => _importReceiverFromContacts(context),
-                icon: const Icon(Icons.contacts, size: 14, color: AppColors.navy),
+                icon: Icon(Icons.contacts, size: 14, color: context.semantic.textPrimary),
                 label: Text(
                   l10n.t('fromContacts'),
-                  style: const TextStyle(
-                    color: AppColors.navy,
+                  style: TextStyle(
+                    color: context.semantic.textPrimary,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
@@ -552,8 +552,8 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
           const SizedBox(height: 4),
           Text(
             l10n.t('receiverHint'),
-            style: const TextStyle(
-              color: AppColors.textSecondary,
+            style: TextStyle(
+              color: context.semantic.textSecondary,
               fontSize: 12,
             ),
           ),
@@ -648,10 +648,10 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
       children: [
         Text(
           l10n.t('presetItem'),
-          style: const TextStyle(
+          style: TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 14,
-            color: AppColors.textSecondary,
+            color: context.semantic.textSecondary,
           ),
         ),
         const SizedBox(height: 8),
@@ -665,7 +665,7 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
                 label: Text(
                   '${entry.key} ($currency${entry.value.toStringAsFixed(0)})',
                   style: TextStyle(
-                    color: isSelected ? Colors.white : AppColors.textPrimary,
+                    color: isSelected ? Colors.white : context.semantic.textPrimary,
                     fontSize: 12,
                   ),
                 ),
@@ -690,8 +690,8 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
         const SizedBox(height: 16),
         Text(
           l10n.t('orEnterWeight'),
-          style: const TextStyle(
-            color: AppColors.textSecondary,
+          style: TextStyle(
+            color: context.semantic.textSecondary,
             fontSize: 12,
           ),
         ),
@@ -722,13 +722,13 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: AppColors.airBg,
+                color: context.semantic.airBg,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
                 '$currency${provider.airPricing.pricePerKg.toStringAsFixed(0)}/kg',
-                style: const TextStyle(
-                  color: AppColors.airText,
+                style: TextStyle(
+                  color: context.semantic.airText,
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
                 ),
@@ -746,10 +746,10 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
       children: [
         Text(
           l10n.t('selectItem'),
-          style: const TextStyle(
+          style: TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 14,
-            color: AppColors.textSecondary,
+            color: context.semantic.textSecondary,
           ),
         ),
         const SizedBox(height: 8),
@@ -767,7 +767,7 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
                     ? l10n.t('customWeight')
                     : '${seaItemTypeLabel(type)} ${price != null ? '($currency${price.toStringAsFixed(0)})' : ''}',
                 style: TextStyle(
-                  color: isSelected ? Colors.white : AppColors.textPrimary,
+                  color: isSelected ? Colors.white : context.semantic.textPrimary,
                   fontSize: 12,
                 ),
               ),
@@ -807,13 +807,13 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppColors.seaBg,
+                  color: context.semantic.seaBg,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   '$currency${provider.seaPricing.pricePerKg.toStringAsFixed(0)}/kg',
-                  style: const TextStyle(
-                    color: AppColors.seaText,
+                  style: TextStyle(
+                    color: context.semantic.seaText,
                     fontWeight: FontWeight.w700,
                     fontSize: 14,
                   ),
@@ -833,7 +833,7 @@ class _NewPackageScreenState extends State<NewPackageScreen> {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: Colors.white,
+      color: context.semantic.cardBg,
       borderRadius: BorderRadius.circular(12),
       elevation: 1,
       shadowColor: Colors.black.withValues(alpha: 0.06),
@@ -1150,7 +1150,7 @@ class _ContactPickerSheetState extends State<_ContactPickerSheet> {
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: Row(
                 children: [
-                  const Icon(Icons.contacts, color: AppColors.navy),
+                  Icon(Icons.contacts, color: context.semantic.textPrimary),
                   const SizedBox(width: 10),
                   const Text(
                     'Select Contact',
@@ -1162,8 +1162,8 @@ class _ContactPickerSheetState extends State<_ContactPickerSheet> {
                   const Spacer(),
                   Text(
                     '${widget.contacts.length} contacts',
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
+                    style: TextStyle(
+                      color: context.semantic.textSecondary,
                       fontSize: 13,
                     ),
                   ),
@@ -1179,7 +1179,7 @@ class _ContactPickerSheetState extends State<_ContactPickerSheet> {
                   hintText: 'Search contacts...',
                   prefixIcon: const Icon(Icons.search, size: 20),
                   filled: true,
-                  fillColor: AppColors.surface,
+                  fillColor: context.semantic.scaffold,
                   contentPadding: const EdgeInsets.symmetric(vertical: 0),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -1193,10 +1193,10 @@ class _ContactPickerSheetState extends State<_ContactPickerSheet> {
             // Contact list
             Expanded(
               child: _filteredContacts.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Text(
                         'No contacts found',
-                        style: TextStyle(color: AppColors.textSecondary),
+                        style: TextStyle(color: context.semantic.textSecondary),
                       ),
                     )
                   : ListView.builder(
@@ -1224,8 +1224,8 @@ class _ContactPickerSheetState extends State<_ContactPickerSheet> {
                           ),
                           subtitle: Text(
                             contact.phone,
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
+                            style: TextStyle(
+                              color: context.semantic.textSecondary,
                               fontSize: 13,
                             ),
                           ),

@@ -134,8 +134,8 @@ class PackageDetailScreen extends StatelessWidget {
                         children: [
                           Text(
                             l.t('paymentStatus'),
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
+                            style: TextStyle(
+                              color: context.semantic.textSecondary,
                               fontSize: 12,
                             ),
                           ),
@@ -155,13 +155,13 @@ class PackageDetailScreen extends StatelessWidget {
                     Text(
                       'Tap to toggle',
                       style: TextStyle(
-                        color: AppColors.textSecondary,
+                        color: context.semantic.textSecondary,
                         fontSize: 11,
                       ),
                     ),
                     const SizedBox(width: 4),
                     Icon(Icons.touch_app,
-                        color: AppColors.textSecondary, size: 16),
+                        color: context.semantic.textSecondary, size: 16),
                   ],
                 ),
               ),
@@ -179,7 +179,7 @@ class PackageDetailScreen extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.person, color: AppColors.navy, size: 20),
+                      Icon(Icons.person, color: context.semantic.textPrimary, size: 20),
                       const SizedBox(width: 8),
                       Text(
                         '${l.t('customers')} (${l.t('sendToSender').replaceAll('Send to ', '')})',
@@ -191,10 +191,10 @@ class PackageDetailScreen extends StatelessWidget {
                     ],
                   ),
                   const Divider(),
-                  _detailRow(Icons.person_outline, l.t('customerName'),
+                  _detailRow(context, Icons.person_outline, l.t('customerName'),
                       customer?.name ?? 'Unknown'),
-                  _detailRow(
-                      Icons.phone_outlined, l.t('phone'), customer?.fullPhone ?? 'N/A'),
+                  _detailRow(context, Icons.phone_outlined, l.t('phone'),
+                      customer?.fullPhone ?? 'N/A'),
                 ],
               ),
             ),
@@ -212,8 +212,8 @@ class PackageDetailScreen extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.person_pin_circle,
-                            color: AppColors.navy, size: 20),
+                        Icon(Icons.person_pin_circle,
+                            color: context.semantic.textPrimary, size: 20),
                         const SizedBox(width: 8),
                         Text(
                           l.t('receiver'),
@@ -226,10 +226,10 @@ class PackageDetailScreen extends StatelessWidget {
                     ),
                     const Divider(),
                     if (pkg.receiverName != null)
-                      _detailRow(Icons.person_outline,
+                      _detailRow(context, Icons.person_outline,
                           l.t('receiverName'), pkg.receiverName!),
                     if (pkg.receiverPhone != null)
-                      _detailRow(Icons.phone_outlined,
+                      _detailRow(context, Icons.phone_outlined,
                           l.t('receiverPhone'), _fullReceiverPhone(pkg)),
                   ],
                 ),
@@ -248,8 +248,8 @@ class PackageDetailScreen extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.info_outline,
-                          color: AppColors.navy, size: 20),
+                      Icon(Icons.info_outline,
+                          color: context.semantic.textPrimary, size: 20),
                       const SizedBox(width: 8),
                       Text(
                         l.t('packages'),
@@ -262,6 +262,7 @@ class PackageDetailScreen extends StatelessWidget {
                   ),
                   const Divider(),
                   _detailRow(
+                    context,
                     pkg.shipmentType == ShipmentType.air
                         ? Icons.flight
                         : Icons.directions_boat,
@@ -271,19 +272,20 @@ class PackageDetailScreen extends StatelessWidget {
                         : 'Sea Shipment',
                   ),
                   if (pkg.weightKg != null)
-                    _detailRow(Icons.scale, l.t('weight'),
+                    _detailRow(context, Icons.scale, l.t('weight'),
                         '${pkg.weightKg!.toStringAsFixed(1)} kg'),
                   if (pkg.presetItemName != null)
-                    _detailRow(Icons.category, 'Item', pkg.presetItemName!),
+                    _detailRow(
+                        context, Icons.category, 'Item', pkg.presetItemName!),
                   if (pkg.seaItemType != null)
-                    _detailRow(Icons.category, 'Item',
+                    _detailRow(context, Icons.category, 'Item',
                         seaItemTypeLabel(pkg.seaItemType!)),
                   if (pkg.description.isNotEmpty)
-                    _detailRow(
-                        Icons.description, l.t('description'), pkg.description),
+                    _detailRow(context, Icons.description, l.t('description'),
+                        pkg.description),
                   if (pkg.notes != null && pkg.notes!.isNotEmpty)
-                    _detailRow(Icons.notes, l.t('notes'), pkg.notes!),
-                  _detailRow(Icons.calendar_today, 'Date',
+                    _detailRow(context, Icons.notes, l.t('notes'), pkg.notes!),
+                  _detailRow(context, Icons.calendar_today, 'Date',
                       '${pkg.createdAt.month}/${pkg.createdAt.day}/${pkg.createdAt.year} at ${pkg.createdAt.hour}:${pkg.createdAt.minute.toString().padLeft(2, '0')}'),
                 ],
               ),
@@ -409,20 +411,21 @@ class PackageDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _detailRow(IconData icon, String label, String value) {
+  Widget _detailRow(
+      BuildContext context, IconData icon, String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 16, color: AppColors.textSecondary),
+          Icon(icon, size: 16, color: context.semantic.textSecondary),
           const SizedBox(width: 8),
           SizedBox(
             width: 90,
             child: Text(
               label,
-              style: const TextStyle(
-                color: AppColors.textSecondary,
+              style: TextStyle(
+                color: context.semantic.textSecondary,
                 fontSize: 13,
               ),
             ),
@@ -430,9 +433,10 @@ class PackageDetailScreen extends StatelessWidget {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: 13,
+                color: context.semantic.textPrimary,
               ),
             ),
           ),

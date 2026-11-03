@@ -44,7 +44,7 @@ class _CustomersScreenState extends State<CustomersScreen> {
                 hintText: '${l.t('search')} by name or phone...',
                 prefixIcon: const Icon(Icons.search, size: 20),
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: context.semantic.cardBg,
                 contentPadding: const EdgeInsets.symmetric(vertical: 0),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -66,14 +66,14 @@ class _CustomersScreenState extends State<CustomersScreen> {
                   const SizedBox(height: 12),
                   Text(
                     l.t('noData'),
-                    style: const TextStyle(
-                        color: AppColors.textSecondary, fontSize: 15),
+                    style: TextStyle(
+                        color: context.semantic.textSecondary, fontSize: 15),
                   ),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     'Customers are added when you log packages',
                     style:
-                        TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                        TextStyle(color: context.semantic.textSecondary, fontSize: 13),
                   ),
                 ],
               ),
@@ -116,19 +116,19 @@ class _CustomersScreenState extends State<CustomersScreen> {
                       children: [
                         Text(
                           customer.fullPhone,
-                          style: const TextStyle(
-                              color: AppColors.textSecondary, fontSize: 13),
+                          style: TextStyle(
+                              color: context.semantic.textSecondary, fontSize: 13),
                         ),
                         Text(
                           '$packageCount packages • $currency${totalSpent.toStringAsFixed(0)} total',
-                          style: const TextStyle(
-                              color: AppColors.textSecondary, fontSize: 11),
+                          style: TextStyle(
+                              color: context.semantic.textSecondary, fontSize: 11),
                         ),
                       ],
                     ),
                     trailing: PopupMenuButton<String>(
-                      icon: const Icon(Icons.more_vert,
-                          color: AppColors.textSecondary),
+                      icon: Icon(Icons.more_vert,
+                          color: context.semantic.textSecondary),
                       onSelected: (value) {
                         switch (value) {
                           case 'edit':
@@ -486,7 +486,7 @@ class _ContactPickerSheetState extends State<_ContactPickerSheet> {
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
               child: Row(
                 children: [
-                  const Icon(Icons.contacts, color: AppColors.navy),
+                  Icon(Icons.contacts, color: context.semantic.textPrimary),
                   const SizedBox(width: 10),
                   const Text(
                     'Import from Contacts',
@@ -498,8 +498,8 @@ class _ContactPickerSheetState extends State<_ContactPickerSheet> {
                   const Spacer(),
                   Text(
                     '${widget.contacts.length}',
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
+                    style: TextStyle(
+                      color: context.semantic.textSecondary,
                       fontSize: 13,
                     ),
                   ),
@@ -513,7 +513,7 @@ class _ContactPickerSheetState extends State<_ContactPickerSheet> {
                   hintText: 'Search contacts...',
                   prefixIcon: const Icon(Icons.search, size: 20),
                   filled: true,
-                  fillColor: AppColors.surface,
+                  fillColor: context.semantic.scaffold,
                   contentPadding: const EdgeInsets.symmetric(vertical: 0),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -525,10 +525,10 @@ class _ContactPickerSheetState extends State<_ContactPickerSheet> {
             ),
             Expanded(
               child: _filteredContacts.isEmpty
-                  ? const Center(
+                  ? Center(
                       child: Text(
                         'No contacts found',
-                        style: TextStyle(color: AppColors.textSecondary),
+                        style: TextStyle(color: context.semantic.textSecondary),
                       ),
                     )
                   : ListView.builder(
@@ -556,8 +556,8 @@ class _ContactPickerSheetState extends State<_ContactPickerSheet> {
                           ),
                           subtitle: Text(
                             contact.phone,
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
+                            style: TextStyle(
+                              color: context.semantic.textSecondary,
                               fontSize: 13,
                             ),
                           ),

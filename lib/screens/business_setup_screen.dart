@@ -93,7 +93,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.surface,
+      backgroundColor: context.semantic.scaffold,
       body: SafeArea(
         child: Column(
           children: [
@@ -131,9 +131,9 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
+      decoration: BoxDecoration(
+        color: context.semantic.cardBg,
+        boxShadow: const [
           BoxShadow(
             color: Color(0x08000000),
             blurRadius: 8,
@@ -148,8 +148,8 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
             children: [
               Text(
                 'Step ${_step + 1} of $_totalSteps',
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
+                style: TextStyle(
+                  color: context.semantic.textSecondary,
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
                 ),
@@ -158,10 +158,10 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
               if (_step < _totalSteps - 1)
                 GestureDetector(
                   onTap: _skipSetup,
-                  child: const Text(
+                  child: Text(
                     'Skip setup',
                     style: TextStyle(
-                      color: AppColors.textSecondary,
+                      color: context.semantic.textSecondary,
                       fontSize: 13,
                       fontWeight: FontWeight.w500,
                     ),
@@ -176,7 +176,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: (_step + 1) / _totalSteps,
-              backgroundColor: AppColors.surface,
+              backgroundColor: context.semantic.scaffold,
               valueColor:
                   const AlwaysStoppedAnimation<Color>(AppColors.gold),
               minHeight: 6,
@@ -221,12 +221,12 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
                 color: AppColors.gold, size: 28),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Set up your business',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
+              color: context.semantic.textPrimary,
             ),
           ),
           const SizedBox(height: 6),
@@ -234,18 +234,18 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
             'Tell us a bit about your shipping operation.',
             style: TextStyle(
               fontSize: 14,
-              color: AppColors.textSecondary,
+              color: context.semantic.textSecondary,
               height: 1.4,
             ),
           ),
           const SizedBox(height: 28),
 
           // Business name
-          const Text('Business Name',
+          Text('Business Name',
               style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
-                  color: AppColors.textSecondary)),
+                  color: context.semantic.textSecondary)),
           const SizedBox(height: 8),
           TextFormField(
             controller: _nameController,
@@ -254,7 +254,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
               prefixIcon:
                   const Icon(Icons.store_rounded, size: 20),
               filled: true,
-              fillColor: Colors.white,
+              fillColor: context.semantic.cardBg,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide(color: Colors.grey.shade300),
@@ -264,11 +264,11 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
           const SizedBox(height: 24),
 
           // Currency
-          const Text('Currency',
+          Text('Currency',
               style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
-                  color: AppColors.textSecondary)),
+                  color: context.semantic.textSecondary)),
           const SizedBox(height: 8),
           _buildOptionRow([
             _CurrencyOption('\$', 'USD', 'US Dollar'),
@@ -278,11 +278,11 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
           const SizedBox(height: 24),
 
           // Language
-          const Text('Language',
+          Text('Language',
               style: TextStyle(
                   fontWeight: FontWeight.w600,
                   fontSize: 13,
-                  color: AppColors.textSecondary)),
+                  color: context.semantic.textSecondary)),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -308,7 +308,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
               margin: const EdgeInsets.only(right: 8),
               padding: const EdgeInsets.symmetric(vertical: 14),
               decoration: BoxDecoration(
-                color: selected ? AppColors.navy : Colors.white,
+                color: selected ? AppColors.navy : context.semantic.cardBg,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
                   color: selected ? AppColors.navy : Colors.grey.shade300,
@@ -322,7 +322,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
-                      color: selected ? Colors.white : AppColors.textPrimary,
+                      color: selected ? Colors.white : context.semantic.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -333,7 +333,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
                       fontWeight: FontWeight.w600,
                       color: selected
                           ? Colors.white.withValues(alpha: 0.8)
-                          : AppColors.textSecondary,
+                          : context.semantic.textSecondary,
                     ),
                   ),
                 ],
@@ -353,7 +353,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         decoration: BoxDecoration(
-          color: selected ? AppColors.navy : Colors.white,
+          color: selected ? AppColors.navy : context.semantic.cardBg,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: selected ? AppColors.navy : Colors.grey.shade300,
@@ -372,7 +372,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
               label,
               style: TextStyle(
                 fontWeight: FontWeight.w600,
-                color: selected ? Colors.white : AppColors.textPrimary,
+                color: selected ? Colors.white : context.semantic.textPrimary,
               ),
             ),
           ],
@@ -403,12 +403,12 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
                 color: AppColors.info, size: 28),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Set your pricing',
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
+              color: context.semantic.textPrimary,
             ),
           ),
           const SizedBox(height: 6),
@@ -416,7 +416,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
             'These are your default prices. You can always adjust per-item later.',
             style: TextStyle(
               fontSize: 14,
-              color: AppColors.textSecondary,
+              color: context.semantic.textSecondary,
               height: 1.4,
             ),
           ),
@@ -427,8 +427,8 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
             icon: Icons.flight_takeoff_rounded,
             title: 'Air Shipping',
             subtitle: 'Price per kilogram for air freight',
-            color: AppColors.airText,
-            bgColor: AppColors.airBg,
+            color: context.semantic.airText,
+            bgColor: context.semantic.airBg,
             controller: _airPriceController,
             symbol: sym,
           ),
@@ -439,8 +439,8 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
             icon: Icons.directions_boat_rounded,
             title: 'Sea Shipping',
             subtitle: 'Price per kilogram for sea freight',
-            color: AppColors.seaText,
-            bgColor: AppColors.seaBg,
+            color: context.semantic.seaText,
+            bgColor: context.semantic.seaBg,
             controller: _seaPriceController,
             symbol: sym,
           ),
@@ -466,7 +466,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
                     'Preset items (laptops, phones, barrels) have individual prices you can customize later in Settings.',
                     style: TextStyle(
                       fontSize: 12,
-                      color: AppColors.textSecondary,
+                      color: context.semantic.textSecondary,
                       height: 1.4,
                     ),
                   ),
@@ -491,7 +491,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: context.semantic.cardBg,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.shade200),
       ),
@@ -521,9 +521,9 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
                           color: color,
                         )),
                     Text(subtitle,
-                        style: const TextStyle(
+                        style: TextStyle(
                             fontSize: 12,
-                            color: AppColors.textSecondary)),
+                            color: context.semantic.textSecondary)),
                   ],
                 ),
               ),
@@ -534,23 +534,23 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
             controller: controller,
             keyboardType:
                 const TextInputType.numberWithOptions(decimal: true),
-            style: const TextStyle(
+            style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.w800,
-                color: AppColors.navy),
+                color: context.semantic.textPrimary),
             decoration: InputDecoration(
               prefixText: '$symbol ',
               prefixStyle: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w800,
-                  color: AppColors.navy.withValues(alpha: 0.5)),
+                  color: context.semantic.textPrimary.withValues(alpha: 0.5)),
               suffixText: '/ kg',
-              suffixStyle: const TextStyle(
+              suffixStyle: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: AppColors.textSecondary),
+                  color: context.semantic.textSecondary),
               filled: true,
-              fillColor: AppColors.surface,
+              fillColor: context.semantic.scaffold,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: BorderSide.none,
@@ -616,12 +616,12 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
             ),
             const SizedBox(height: 32),
 
-            const Text(
+            Text(
               "You're all set!",
               style: TextStyle(
                 fontSize: 26,
                 fontWeight: FontWeight.w800,
-                color: AppColors.textPrimary,
+                color: context.semantic.textPrimary,
               ),
             ),
             const SizedBox(height: 10),
@@ -630,7 +630,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 14,
-                color: AppColors.textSecondary,
+                color: context.semantic.textSecondary,
                 height: 1.5,
               ),
             ),
@@ -670,7 +670,7 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
               color: AppColors.navy.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: AppColors.navy, size: 20),
+            child: Icon(icon, color: context.semantic.textPrimary, size: 20),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -681,8 +681,8 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
                     style: const TextStyle(
                         fontWeight: FontWeight.w600, fontSize: 14)),
                 Text(subtitle,
-                    style: const TextStyle(
-                        fontSize: 12, color: AppColors.textSecondary)),
+                    style: TextStyle(
+                        fontSize: 12, color: context.semantic.textSecondary)),
               ],
             ),
           ),
@@ -700,9 +700,9 @@ class _BusinessSetupScreenState extends State<BusinessSetupScreen> {
 
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
+      decoration: BoxDecoration(
+        color: context.semantic.cardBg,
+        boxShadow: const [
           BoxShadow(
             color: Color(0x08000000),
             blurRadius: 8,
